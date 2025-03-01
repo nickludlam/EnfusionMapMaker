@@ -208,6 +208,12 @@
         var kermovan = gameCoordsToLatLng([6359.376, 9668.684]);
         var gravette = gameCoordsToLatLng([4128.282, 7792.364]);
         var quarry = gameCoordsToLatLng([8786.965, 3913.078]);
+        var regina = gameCoordsToLatLng([7188.38, 2312.382]);
+        var villeneuve = gameCoordsToLatLng([2847.008, 6339.848]);
+
+        // features
+        var airport = gameCoordsToLatLng([4893.46, 11800.709]);
+        var powerplant = gameCoordsToLatLng([5826.642, 9786.735]);
 
         var resourceDepotFarm = gameCoordsToLatLng([5009.537, 9964.422]);
         var resourceDepotMeauxHarbor = gameCoordsToLatLng([4304.272, 9517.466]);
@@ -262,16 +268,20 @@
         var andresBeaconTooltip = L.tooltip(andresBeacon, {content: 'Andres Beacon', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
         var gravetteTooltip = L.tooltip(gravette, {content: 'Gravette', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
         var quarryTooltip = L.tooltip(quarry, {content: 'Quarry', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var reginaTooltip = L.tooltip(regina, {content: 'Regina', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var villeneuveTooltip = L.tooltip(villeneuve, {content: 'Villeneuve', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var airportTooltip = L.tooltip(airport, {content: 'Airport', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var powerplantTooltip = L.tooltip(powerplant, {content: 'Power Plant', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
 
         // label all resource depots
-        //var resourceDepotFarmTooltip = L.tooltip(resourceDepotFarm, {content: 'Resources: Farm', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotFarmTooltip = L.tooltip(resourceDepotFarm, {content: 'Farm', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
         //var resourceDepotMeauxHarborTooltip = L.tooltip(resourceDepotMeauxHarbor, {content: 'Resources: Meaux Harbor', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
-        var resourceDepotGoreyTooltip = L.tooltip(resourceDepotGorey, {content: 'Resources: Gorey', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotGoreyTooltip = L.tooltip(resourceDepotGorey, {content: 'Gorey', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
         //var resourceDepotPinewoodLakeTooltip = L.tooltip(resourceDepotPinewoodLake, {content: 'Resources: Pinewood Lake', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
         //var resourceDepotLevieTooltip = L.tooltip(resourceDepotLevie, {content: 'Resources: Levie', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
         //var resourceDepotDurrasHillTooltip = L.tooltip(resourceDepotDurrasHill, {content: 'Resources: Durras Hill', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
-        var resourceDepotSawmillTooltip = L.tooltip(resourceDepotSawmill, {content: 'Resources: Sawmill', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
-        var resourceDepotReginaTooltip = L.tooltip(resourceDepotRegina, {content: 'Resources: Regina', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotSawmillTooltip = L.tooltip(resourceDepotSawmill, {content: 'Sawmill', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotReginaTooltip = L.tooltip(resourceDepotRegina, {content: 'Resources: Regina', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
         //var resourceDepotChotainIndustrialTooltip = L.tooltip(resourceDepotChotainIndustrial, {content: 'Resources: Chotain Industrial', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
 
 
