@@ -3,14 +3,36 @@
 <head>
     <title>Everon Map Test</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Inter">
+    <style>
+        body {
+            font-family: 'Inter', serif;
+          }
+    </style>
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
+
+    <link rel="stylesheet" href="leafletMarkerCluster/MarkerCluster.css" />
+    <link rel="stylesheet" href="leafletMarkerCluster/MarkerCluster.Default.css" />
+    <script src="leafletMarkerCluster/leaflet.markercluster.js"></script>
+
+
+    <script src="entities.js"></script>
     <style type="text/css">
-        #map { height: 800px; width: 1000px; }
+        #map { height: 1000px; width: 1200px; }
+
+        .common-tooltip {
+            background-color: transparent;
+            border: transparent;
+            box-shadow: none;
+        }
 
         .town-name-tooltip {
             background-color: transparent;
@@ -19,7 +41,21 @@
             color: white;
             font-size: 16px;
             font-weight: bold;
-            text-shadow: 1px 1px 1px black;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .resource-depot-tooltip {
+            background-color: transparent;
+            border: transparent;
+            box-shadow: none;
+            color: rgb(17, 227, 255);
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .hidden-tooltip {
+            visibility: hidden;
         }
     </style>
 
@@ -47,9 +83,13 @@
     </script>
 </head>
 <body>
-    <h1>Everon Map Test</h1>
-    <p>Clicked game coordinates => X:<span id="xCoord"></span>, Z: <span id="zCoord"></span></p>
+    <h1>Everon Supplies [TEST]</h1>
+    <p>The location of every supply cache which can be used in the Conflict game mode.</p>
+    <p>This page is a test, and will not be permanently available.</p>
+    <!-- <p>Clicked game coordinates => X:<span id="xCoord"></span>, Z: <span id="zCoord"></span></p> -->
     <div id="map"></div>
+    <p>Made by Bewilderbeest</p>
+
     <script>
         // Define a custom CRS to match the game's coordinate system
         // This is identical to L.CRS.Simple, but with a custom scale factor
@@ -109,9 +149,51 @@
             return [latlng.lng - 50, latlng.lat - 50];
         }
 
+        // All points from Conflict
+        // Saint-Pierre
+        // Vernon
+        // Pennants Pass
+        // Durras
+        // Black Lake
+        // Regina
+        // Tower Regina
+        // Quarry
+        // Camurac
+        // Mil Base Levie
+        // Levie
+        // Laruns
+        // Simon's Wood
+        // Chotain
+        // Coastal Base Morton
+        // Morton Valley
+        // Coastal Base Chotain
+        // Figari
+        // Provins
+        // Pinewood Lake
+        // Cavalry Hill
+        // Old Wood
+        // Le Moule
+        // Coastal Base Lamentin
+        // Villeneuve
+        // Tiller's Find
+        // Montignac
+        // Entre-Deux
+        // Andre's Beacon
+        // Hornbeam Valley
+        // Gravette
+        // Military Hospital
+        // Tyrone
+        // Meaux
+        // Kermovan
+        // Military Depot
+        // Saint-Phillipe
+        // Airbase Saint-Phillipe
+
+
         // Some hardcoded locations for Eden/Everon
         var saintPhillipe = gameCoordsToLatLng([4500.872, 10776.053]);
         var montignac = gameCoordsToLatLng([4775.641, 7086.945]);
+        var entreDeux = gameCoordsToLatLng([5760.571, 7061.821]);
         var meaux = gameCoordsToLatLng([4517.52, 9467.668]);
         var saintPierre = gameCoordsToLatLng([9689.432, 1558.166]);
         var morton = gameCoordsToLatLng([5137.254, 4009.941]);
@@ -120,46 +202,125 @@
         var chotain = gameCoordsToLatLng([7087.74, 6011.904]);
         var levie = gameCoordsToLatLng([7456.592, 4737.094]);
         var durras = gameCoordsToLatLng([8826.12, 2746.123]);
+        var camurac = gameCoordsToLatLng([6594.162, 3116.684]);
+        var provins = gameCoordsToLatLng([5488.17, 6083.411]);
+        var andresBeacon = gameCoordsToLatLng([6843.832, 8191.218]);
+        var kermovan = gameCoordsToLatLng([6359.376, 9668.684]);
+        var gravette = gameCoordsToLatLng([4128.282, 7792.364]);
+        var quarry = gameCoordsToLatLng([8786.965, 3913.078]);
+
+        var resourceDepotFarm = gameCoordsToLatLng([5009.537, 9964.422]);
+        var resourceDepotMeauxHarbor = gameCoordsToLatLng([4304.272, 9517.466]);
+        var resourceDepotGorey = gameCoordsToLatLng([4844.906, 8088.995]);
+        var resourceDepotPinewoodLake = gameCoordsToLatLng([4871.928, 5675.194]);
+        var resourceDepotLevie = gameCoordsToLatLng([6918, 4450]);
+        var resourceDepotDurrasHill = gameCoordsToLatLng([9044.778, 2741.715]);
+        var resourceDepotSawmill = gameCoordsToLatLng([3114.358, 5221.5]);
+        var resourceDepotRegina = gameCoordsToLatLng([7089.407, 2072.731]);
+        var resourceDepotChotainIndustrial = gameCoordsToLatLng([6455.525, 6487.396]);
+
+        // Unmarked cap points
+        var capPointOldWood = gameCoordsToLatLng([3293.234, 4488.741]);
+        var capPointMortonValley = gameCoordsToLatLng([4517.589, 4967.065]);
+        var capPointLaruns = gameCoordsToLatLng([7429.288, 5318.843]);
+        var capPointQuarry = gameCoordsToLatLng([8797.021, 3905.115]);
+
+        // Mil Bases
+        var militaryBaseChotain = gameCoordsToLatLng([7444.065, 6697.595]);
+        var militaryBaseLevie = gameCoordsToLatLng([7476.739, 4301.884]);
+        var militaryHospital = gameCoordsToLatLng([3904.698, 8450.042]);
+        var coastalBaseLamentin = gameCoordsToLatLng([1062.89, 6047.846]);
+        var coastalBaseMorton = gameCoordsToLatLng([4956.796, 3875.627]);
 
         // Add some markers to verify coordinates are working correctly
         var northBuoy = gameCoordsToLatLng([967.172, 12196.345]);
-        L.marker(northBuoy).addTo(map);
+        {{/*  L.marker(northBuoy).addTo(map);  */}}
 
         var oldFort = gameCoordsToLatLng([3415.019, 1455.202]);
-        L.marker(oldFort).addTo(map);
+        {{/*  L.marker(oldFort).addTo(map);  */}}
 
         var beachUmbrella = gameCoordsToLatLng([11498.44, 10896.933]);
-        L.marker(beachUmbrella).addTo(map);
+        {{/*  L.marker(beachUmbrella).addTo(map);  */}}
 
         // DEFAULT VIEWS
         //map.setView( beachUmbrella, 1);
         //map.setView( L.latLng([500, 500]), 5);
         
         // Tooltips
-        var stPhillipeTooltip = L.tooltip(saintPhillipe, {content: 'St Phillipe', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var montignacTooltip = L.tooltip(montignac, {content: 'Montignac', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var saintPierreTooltip = L.tooltip(saintPierre, {content: 'St Pierre', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var mortonTooltip = L.tooltip(morton, {content: 'Morton', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var figariTooltip = L.tooltip(figari, {content: 'Figari', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var lamentinTooltip = L.tooltip(lamentin, {content: 'Lamentin', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var chotainTooltip = L.tooltip(chotain, {content: 'Chotain', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var levieTooltip = L.tooltip(levie, {content: 'Levie', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var durrasTooltip = L.tooltip(durras, {content: 'Durras', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        var meauxTooltip = L.tooltip(meaux, {content: 'Meaux', permanent: true, direction: "center", className: "town-name-tooltip" }).addTo(map);
-        
+        var stPhillipeTooltip = L.tooltip(saintPhillipe, {content: 'St Phillipe', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var montignacTooltip = L.tooltip(montignac, {content: 'Montignac', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var saintPierreTooltip = L.tooltip(saintPierre, {content: 'St Pierre', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var mortonTooltip = L.tooltip(morton, {content: 'Morton', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var figariTooltip = L.tooltip(figari, {content: 'Figari', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var lamentinTooltip = L.tooltip(lamentin, {content: 'Lamentin', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var chotainTooltip = L.tooltip(chotain, {content: 'Chotain', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var levieTooltip = L.tooltip(levie, {content: 'Levie', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var durrasTooltip = L.tooltip(durras, {content: 'Durras', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var meauxTooltip = L.tooltip(meaux, {content: 'Meaux', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var camuracTooltip = L.tooltip(camurac, {content: 'Camurac', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var provinsTooltip = L.tooltip(provins, {content: 'Provins', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var andresBeaconTooltip = L.tooltip(andresBeacon, {content: 'Andres Beacon', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var gravetteTooltip = L.tooltip(gravette, {content: 'Gravette', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var quarryTooltip = L.tooltip(quarry, {content: 'Quarry', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+
+        // label all resource depots
+        //var resourceDepotFarmTooltip = L.tooltip(resourceDepotFarm, {content: 'Resources: Farm', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotMeauxHarborTooltip = L.tooltip(resourceDepotMeauxHarbor, {content: 'Resources: Meaux Harbor', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotGoreyTooltip = L.tooltip(resourceDepotGorey, {content: 'Resources: Gorey', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotPinewoodLakeTooltip = L.tooltip(resourceDepotPinewoodLake, {content: 'Resources: Pinewood Lake', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotLevieTooltip = L.tooltip(resourceDepotLevie, {content: 'Resources: Levie', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotDurrasHillTooltip = L.tooltip(resourceDepotDurrasHill, {content: 'Resources: Durras Hill', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotSawmillTooltip = L.tooltip(resourceDepotSawmill, {content: 'Resources: Sawmill', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        var resourceDepotReginaTooltip = L.tooltip(resourceDepotRegina, {content: 'Resources: Regina', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+        //var resourceDepotChotainIndustrialTooltip = L.tooltip(resourceDepotChotainIndustrial, {content: 'Resources: Chotain Industrial', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
+
+
         //addGridDebug(map); // Uncomment to add a grid overlay for debugging
 
         // Simple test code to verify placing markers and getting coordinates
-        var lat, lng, marker;
-        map.on("click", function (e) {
-            if (marker) map.removeLayer(marker);
-            lat = e.latlng.lat;
-            lng = e.latlng.lng;
+        //var lat, lng, marker;
+        //map.on("click", function (e) {
+        //    if (marker) map.removeLayer(marker);
+        //    lat = e.latlng.lat;
+        //    lng = e.latlng.lng;
 
-            var gameCoords = latLngToGameCoords(e.latlng);
-            marker = L.marker([lat, lng]).addTo(map);
-            document.getElementById("xCoord").textContent = gameCoords[0];
-            document.getElementById("zCoord").textContent = gameCoords[1];
+        //    var gameCoords = latLngToGameCoords(e.latlng);
+        //    marker = L.marker([lat, lng]).addTo(map);
+        //    document.getElementById("xCoord").textContent = gameCoords[0];
+        //    document.getElementById("zCoord").textContent = gameCoords[1];
+        //});
+
+
+        var clusteredMarkers = L.markerClusterGroup({
+            disableClusteringAtZoom : 5
+        });
+
+        // Load 'resource_locations.json'
+        resource_locations.forEach(coord => {
+            console.log(coord);
+            var coordLatLng = gameCoordsToLatLng([coord[0], coord[1]]);
+            //var coordMarker = L.marker(coordLatLng).addTo(map); // add directly to map
+            var coordMarker = L.marker(coordLatLng, { title: 'Test' });
+            clusteredMarkers.addLayer(coordMarker);
+        });
+        
+        map.addLayer(clusteredMarkers);
+
+        //Hide tooltips based on zoom level. Currently This is set to 17
+        map.on('zoomend', function(e){
+            var zoomLevel = map.getZoom();
+            if (zoomLevel == 5 ){
+                [].forEach.call(document.querySelectorAll('.common-tooltip'), function (el) {
+                    // add hidden-tooltip class to hide
+                    console.log(`Hiding ${el}`);
+                    el.classList.add('hidden-tooltip');
+                });
+            }else{
+                [].forEach.call(document.querySelectorAll('.common-tooltip'), function (el) {
+                    console.log(`Showing ${el}`);
+                    el.classList.remove('hidden-tooltip');
+                });
+            }
         });
 
     </script>
