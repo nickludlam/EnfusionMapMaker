@@ -62,7 +62,7 @@ class LODTile():
     xCoord: int
     zCoord: int
     lodLevel: int
-    _image: Image
+    _image: Image.Image
 
     @staticmethod
     def get_glob():
@@ -302,7 +302,7 @@ class Screenshot():
         return self._screenshot_image
 
     @property
-    def tile_image(self):
+    def tile_image(self) -> Image.Image:
         if self._tile_image is None:
             self._tile_image = Image.open(self.tile_filepath)
         return self._tile_image
@@ -504,7 +504,7 @@ class ScreenshotProcessor():
         print(f"Creating large map from {len(included_tiles)} tiles")
         self.composite_screenshot_tiles(included_tiles, filepath)
 
-    def make_lod_0(self) -> list[LODTile]:
+    def make_lod_0(self):
         # At LOD 0, we use the original tiles, and output to a new folder
         # At LOD 1+, we merge every 2x2 grid of tiles into a single tile from the LOD below, and resize to get_tile_size()
         for screenshot in self.screenshots:

@@ -93,61 +93,6 @@
     <script>
         // Define a custom CRS to match the game's coordinate system
         // This is identical to L.CRS.Simple, but with a custom scale factor
-        L.CRS.CustomSimple = L.Util.extend({}, L.CRS, {
-            projection: L.Projection.LonLat,
-            transformation: new L.Transformation(1/12.501, 0, -1/12.501, 0), // I had to eyeball this scale factor!
-        
-            scale(zoom) {
-                return Math.pow(2, zoom);
-            },
-        
-            zoom(scale) {
-                return Math.log(scale) / Math.LN2;
-            },
-        
-            distance(latlng1, latlng2) {
-                const dx = latlng2.lng - latlng1.lng,
-                    dy = latlng2.lat - latlng1.lat;
-        
-                return Math.sqrt(dx * dx + dy * dy);
-            },
-        
-            infinite: true
-        });
-
-        var map = L.map('map', {
-            crs: L.CRS.CustomSimple,
-            center: [4775.641, 7086.945],
-            zoom: 0,
-        });
-
-        // Define the bounds of the map in game coordinates
-        var bounds = [[0,0], [12800,12800]];
-
-        // Invert the y axis so we can use the same tile naming scheme as the game
-        L.TileLayer.InvertedY = L.TileLayer.extend({
-            getTileUrl: function(tilecoords) {
-                tilecoords.y = -(tilecoords.y + 1);
-                return L.TileLayer.prototype.getTileUrl.call(this, tilecoords);
-            }
-        });
-
-        // create a tile layer, and invert the z axis as we name by LODs
-        tileLayer = new L.TileLayer.InvertedY('LODS/{z}/{x}/{y}/tile.jpg', {
-            maxZoom: 5,
-            minZoom: 0,
-            zoomReverse: true,
-            bounds: bounds,
-        }).addTo(map);
-
-        // This +50 accounts for our offset as the camera looks down into the center of LOD0 tiles, not the corner
-        function gameCoordsToLatLng(coordPair) {
-            return L.latLng([coordPair[1] + 50, coordPair[0] + 50]);
-        }
-
-        function latLngToGameCoords(latlng) {
-            return [latlng.lng - 50, latlng.lat - 50];
-        }
 
         // All points from Conflict
         // Saint-Pierre
@@ -190,63 +135,14 @@
         // Airbase Saint-Phillipe
 
 
-        // Some hardcoded locations for Eden/Everon
-        var saintPhillipe = gameCoordsToLatLng([4500.872, 10776.053]);
-        var montignac = gameCoordsToLatLng([4775.641, 7086.945]);
-        var entreDeux = gameCoordsToLatLng([5760.571, 7061.821]);
-        var meaux = gameCoordsToLatLng([4517.52, 9467.668]);
-        var saintPierre = gameCoordsToLatLng([9689.432, 1558.166]);
-        var morton = gameCoordsToLatLng([5137.254, 4009.941]);
-        var figari = gameCoordsToLatLng([5256.366, 5341.263]);
-        var lamentin = gameCoordsToLatLng([1281.055, 5946.839]);
-        var chotain = gameCoordsToLatLng([7087.74, 6011.904]);
-        var levie = gameCoordsToLatLng([7456.592, 4737.094]);
-        var durras = gameCoordsToLatLng([8826.12, 2746.123]);
-        var camurac = gameCoordsToLatLng([6594.162, 3116.684]);
-        var provins = gameCoordsToLatLng([5488.17, 6083.411]);
-        var andresBeacon = gameCoordsToLatLng([6843.832, 8191.218]);
-        var kermovan = gameCoordsToLatLng([6359.376, 9668.684]);
-        var gravette = gameCoordsToLatLng([4128.282, 7792.364]);
-        var quarry = gameCoordsToLatLng([8786.965, 3913.078]);
-        var regina = gameCoordsToLatLng([7188.38, 2312.382]);
-        var villeneuve = gameCoordsToLatLng([2847.008, 6339.848]);
-
-        // features
-        var airport = gameCoordsToLatLng([4893.46, 11800.709]);
-        var powerplant = gameCoordsToLatLng([5826.642, 9786.735]);
-
-        var resourceDepotFarm = gameCoordsToLatLng([5009.537, 9964.422]);
-        var resourceDepotMeauxHarbor = gameCoordsToLatLng([4304.272, 9517.466]);
-        var resourceDepotGorey = gameCoordsToLatLng([4844.906, 8088.995]);
-        var resourceDepotPinewoodLake = gameCoordsToLatLng([4871.928, 5675.194]);
-        var resourceDepotLevie = gameCoordsToLatLng([6918, 4450]);
-        var resourceDepotDurrasHill = gameCoordsToLatLng([9044.778, 2741.715]);
-        var resourceDepotSawmill = gameCoordsToLatLng([3114.358, 5221.5]);
-        var resourceDepotRegina = gameCoordsToLatLng([7089.407, 2072.731]);
-        var resourceDepotChotainIndustrial = gameCoordsToLatLng([6455.525, 6487.396]);
-
-        // Unmarked cap points
-        var capPointOldWood = gameCoordsToLatLng([3293.234, 4488.741]);
-        var capPointMortonValley = gameCoordsToLatLng([4517.589, 4967.065]);
-        var capPointLaruns = gameCoordsToLatLng([7429.288, 5318.843]);
-        var capPointQuarry = gameCoordsToLatLng([8797.021, 3905.115]);
-
-        // Mil Bases
-        var militaryBaseChotain = gameCoordsToLatLng([7444.065, 6697.595]);
-        var militaryBaseLevie = gameCoordsToLatLng([7476.739, 4301.884]);
-        var militaryHospital = gameCoordsToLatLng([3904.698, 8450.042]);
-        var coastalBaseLamentin = gameCoordsToLatLng([1062.89, 6047.846]);
-        var coastalBaseMorton = gameCoordsToLatLng([4956.796, 3875.627]);
 
         // Add some markers to verify coordinates are working correctly
-        var northBuoy = gameCoordsToLatLng([967.172, 12196.345]);
-        {{/*  L.marker(northBuoy).addTo(map);  */}}
-
-        var oldFort = gameCoordsToLatLng([3415.019, 1455.202]);
-        {{/*  L.marker(oldFort).addTo(map);  */}}
-
-        var beachUmbrella = gameCoordsToLatLng([11498.44, 10896.933]);
-        {{/*  L.marker(beachUmbrella).addTo(map);  */}}
+        // var northBuoy = gameCoordsToLatLng([967.172, 12196.345]);
+        // L.marker(northBuoy).addTo(map);
+        // var oldFort = gameCoordsToLatLng([3415.019, 1455.202]);
+        // L.marker(oldFort).addTo(map);
+        // var beachUmbrella = gameCoordsToLatLng([11498.44, 10896.933]);
+        // L.marker(beachUmbrella).addTo(map);
 
         // DEFAULT VIEWS
         //map.setView( beachUmbrella, 1);
@@ -272,6 +168,7 @@
         var villeneuveTooltip = L.tooltip(villeneuve, {content: 'Villeneuve', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
         var airportTooltip = L.tooltip(airport, {content: 'Airport', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
         var powerplantTooltip = L.tooltip(powerplant, {content: 'Power Plant', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
+        var tyroneTooltip = L.tooltip(tyrone, {content: 'Tyrone', permanent: true, direction: "center", className: "common-tooltip town-name-tooltip" }).addTo(map);
 
         // label all resource depots
         var resourceDepotFarmTooltip = L.tooltip(resourceDepotFarm, {content: 'Farm', permanent: true, direction: "center", className: "common-tooltip resource-depot-tooltip" }).addTo(map);
@@ -288,17 +185,17 @@
         //addGridDebug(map); // Uncomment to add a grid overlay for debugging
 
         // Simple test code to verify placing markers and getting coordinates
-        //var lat, lng, marker;
-        //map.on("click", function (e) {
-        //    if (marker) map.removeLayer(marker);
-        //    lat = e.latlng.lat;
-        //    lng = e.latlng.lng;
-
-        //    var gameCoords = latLngToGameCoords(e.latlng);
-        //    marker = L.marker([lat, lng]).addTo(map);
-        //    document.getElementById("xCoord").textContent = gameCoords[0];
-        //    document.getElementById("zCoord").textContent = gameCoords[1];
-        //});
+        var lat, lng, marker;
+        map.on("click", function (e) {
+           if (marker) map.removeLayer(marker);
+           lat = e.latlng.lat;
+           lng = e.latlng.lng;
+           var gameCoords = latLngToGameCoords(e.latlng);
+           console.log(gameCoords);
+           marker = L.marker([lat, lng]).addTo(map);
+          //  document.getElementById("xCoord").textContent = gameCoords[0];
+          //  document.getElementById("zCoord").textContent = gameCoords[1];
+        });
 
 
         var clusteredMarkers = L.markerClusterGroup({

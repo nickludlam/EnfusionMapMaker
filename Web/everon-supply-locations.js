@@ -1,4 +1,4 @@
-var resource_locations = [
+var supplyLocations = [
  [9968.9, 1616.76],
  [9991.83, 1624.39],
  [9919.48, 1651.5],

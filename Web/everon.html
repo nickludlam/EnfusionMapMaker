@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Everon Interactive Map Test</title>
+    <meta property="og:title" content="Everon Interactive Map Test" />
+    <meta property="og:description" content="A test website demonstrating an interactive scrolling/zooming map of Everon captured using the Workbench tools." />
+    <meta property="og:image" content="https://nick.recoil.org/everon-d012/preview.jpg" />
+    <meta property="og:author" content="Bewilderbeest" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+      body {
+          font-family: sans-serif;
+        }
+    </style>
+
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <script src="leaflet/leaflet.js"></script>
+    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
+    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
+    <script src="leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
+    <script src="leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
+    
+    <style type="text/css">
+      #map {
+        width: 100%;
+        height: 80vh;
+        background-color: #2B3D4B; }
+
+      .common-tooltip {
+          background-color: transparent;
+          border: transparent;
+          box-shadow: none;
+      }
+
+      .town-name-tooltip {
+          color: white;
+          font-size: 18px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .resource-depot-tooltip {
+          color: rgb(59, 227, 205);
+          font-size: 17px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .military-base-tooltip {
+          color: rgb(222, 222, 222);
+          font-size: 15px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .hidden-tooltip {
+          visibility: hidden;
+      }
+  </style>
+
+    <!-- Import one supply-locations per page -->
+    <script src="everon-supply-locations.js"></script>
+    <script src="everon-locations.js"></script>
+
+    <script src="reforger-map.js"></script>
+
+    <script lang="text/javascript">
+      function initMap() {
+        // Configure the map bounds for this particular map
+        var mapBounds = [[0,0], [12800, 12800]];
+
+        // Below here should be mostly the same for each map
+        var mapPadding = 2000;
+        var mapCenter = mapBounds[0].map((val, index) => (val + mapBounds[1][index]) / 2);
+
+        // Create the map and add the markers
+        var map = makeMap(mapBounds, {
+          fullscreenControl: true,
+        	fullscreenControlOptions: {
+            position: 'topleft'
+          },
+          center: mapCenter,
+        });
+
+        var paddedMapBounds = [
+          [mapBounds[0][0] - mapPadding, mapBounds[0][1] - mapPadding],
+          [mapBounds[1][0] + mapPadding, mapBounds[1][1] + mapPadding]
+        ];
+        map.setMaxBounds(paddedMapBounds);
+        // center the map on the center of the map bounds
+
+        addClusteredMapMarkers(map, supplyLocations);
+       
+        // Set up our two classes of labels matching below
+        var townLabelClassName = "common-tooltip town-name-tooltip";
+        labeledTownLocations.forEach(labeledTownLocation => {
+          addMapLabel(map, labeledTownLocation.gameCoords, labeledTownLocation.name, townLabelClassName);
+        });
+
+        var resourceDepotLabelClassName = "common-tooltip resource-depot-tooltip";
+        labeledResourceLocations.forEach(labeledResourceLocation => {
+          addMapLabel(map, labeledResourceLocation.gameCoords, labeledResourceLocation.name, resourceDepotLabelClassName);
+        });
+
+        var militaryBaseLabelClassName = "common-tooltip military-base-tooltip hidden-tooltip";
+        labeledMilitaryBaseLocations.forEach(labeledMilitaryBaseLocation => {
+          addMapLabel(map, labeledMilitaryBaseLocation.gameCoords, labeledMilitaryBaseLocation.name, militaryBaseLabelClassName);
+        });        
+
+        // hide the labels when zoomed all the way in
+        defineLabelVisibility(map, 0, 4, '.common-tooltip', 'hidden-tooltip');
+
+        defineLabelVisibility(map, 1, 4, '.military-base-tooltip', 'hidden-tooltip');
+
+        // debug click handler
+        map.on("click", function (e) {
+           var gameCoords = latLngToGameCoords(e.latlng);
+           console.log(gameCoords);
+        });
+      }
+    </script>
+</head>
+<body onload="initMap()">
+  <h1>Everon Interactive Map Test</h1>
+  <p>This map displays the location of every supply cache which can be used in the Conflict game mode on Everon. The data is procedurally gathered from the Arma Reforger Workbench.</p>
+  <p>NOTE: This page is a test, and will not be permanently available at this URL, so please don't share/bookmark until the website is finalised.</p>
+  <div id="map"></div>
+  <p>Made by Bewilderbeest</p>
+</body>
+</html>
