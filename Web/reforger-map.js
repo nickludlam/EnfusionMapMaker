@@ -111,6 +111,17 @@ function latLngToGameCoords(latlng) {
   return [latlng.lng - 50, latlng.lat - 50];
 }
 
+// Convert game coordinates to a Leaflet bounds object by swapping the x and y for LngLat
+function gameCoordsToBounds(coordPairMin, coordPairMax, padding=0) {
+  coordPairMin = [coordPairMin[0] - padding, coordPairMin[1] - padding];
+  coordPairMax = [coordPairMax[0] + padding, coordPairMax[1] + padding];
+  return [[coordPairMin[1], coordPairMin[0]], [coordPairMax[1], coordPairMax[0]]];
+}
+
+function mapCenterFromBounds(bounds) {
+  return [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
+}
+
 // Adds a grid debug which displays coordinates of each tile
 function addGridDebug(map) {
   L.GridLayer.GridDebug = L.GridLayer.extend({

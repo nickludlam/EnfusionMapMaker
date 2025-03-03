@@ -1,6 +1,9 @@
 [WorkbenchToolAttribute(name: "Entity Query Tool", description: "Queries the map for resources, inside an AABB, and allows you to reject based on substring of the XOB path", wbModules: {"WorldEditor"}, awesomeFontCode: 0xf6e2)]
 class EntityQueryWorldEditorTool: WorldEditorTool
 {
+    // Name: Entity Query Tool
+    // Author: Bewilderbeest <bewilder@recoil.org>
+
 	////////////////////////////
 	// State vars
 
@@ -15,7 +18,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Min",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "4000 0 4000"
+		defvalue: "0 0 0"
 	)]
 	vector m_queryBoundsMin = Vector(0, 0, 0);
 
@@ -23,7 +26,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Max",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "5000 0 5000"
+		defvalue: "120000 100 120000"
 	)]
 	vector m_queryBoundsMax = Vector(0, 0, 0);
 	
@@ -43,12 +46,12 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		uiwidget: UIWidgets.Auto,
 		defvalue: "Tool"
 	)]
-	string m_commaSeparatedExclusionString;
+	string m_exclusionTerms;
 
 	////////////////////////////
 	// Output category
 
-	[Attribute("0", UIWidgets.Auto, "Write output file", "", null, "File Output")]
+	[Attribute("0", UIWidgets.Auto, "If true, write to a file. If false, print to the console", "", null, "File Output")]
 	bool m_writeFile = false;
 	
 	[Attribute("entities.json", UIWidgets.Auto, "Output filename prefix", "", null, "File Output")]
@@ -71,7 +74,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			if (m_writeFile) {
 				WriteJSONEntityCoordinates();
 			} else {
-				PrintResults(false); // True if you want to modify the printed line, see PrintResults()
+				PrintEntityCoordinates(false); // True if you want to modify the printed line, see PrintEntityCoordinates()
 			}			
 		} else {
 			Print("Query failed!");
@@ -100,29 +103,31 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			m_entityResults.Clear();
 		}
 		
-		// Gather our exclusion strings
-		m_excludeStringArray = new array<string>;
-		if (m_commaSeparatedExclusionString.Length() > 0) {
-			PrintFormat("Collecting exclusion terms from %1", m_commaSeparatedExclusionString);
-			m_commaSeparatedExclusionString.Split(",", m_excludeStringArray, true);
+		// Gather our individual exclusion strings from the comma separated list
+        m_excludeStringArray = new array<string>;
+		array<string> tmpStringSplit = new array<string>;
+		if (m_exclusionTerms.Length() > 0) {
+			m_exclusionTerms.Split(",", tmpStringSplit, true);
 
-			// trim them
-			foreach(string s: m_excludeStringArray) {
+			// trim them before adding
+			foreach(string s: tmpStringSplit) {
 				s.TrimInPlace();
-				PrintFormat("Exclusion string %1", s);
+				PrintFormat("Adding exclusion string \"%1\"", s);
+                m_excludeStringArray.Insert(s);
 			}
 		}
 		
 		return true;
 	}
 		
-	// Currently we only want to look for resource + inventory (the signposts)
 	bool filterResourceEntitiesCallback(IEntity e) {
+    	// Currently we only want to look for objects with resource + inventory components (the supply signposts)
 		if (e.FindComponent(SCR_ResourceComponent) && e.FindComponent(InventoryItemComponent)) {
 			string xobPath = e.GetVObject().GetResourceName();
+            // These also include tool racks, so we want to exclude specific words found in the path
 			foreach(string exclusionString : m_excludeStringArray) {
 				if (xobPath.Contains(exclusionString)) {
-					PrintFormat("Excluding %1 as it contains %2", xobPath, exclusionString);
+					PrintFormat("Excluding %1 as it contains \"%2\"", xobPath, exclusionString);
 					return false;
 				}
 			}
@@ -162,7 +167,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	}
 	
 	// Just print the results to the console for debugging / checking
-	void PrintResults(bool customFormat) {
+	void PrintEntityCoordinates(bool customFormat) {
 		foreach(IEntity foundEntity : m_entityResults) {
 			if (customFormat) {
 				vector position = foundEntity.GetOrigin();
@@ -188,6 +193,8 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	
 	////////////////////////////
 	// Helper functions
+
+    // This will convert the enum value to a string
 	string EQueryEntitiesFlagsToString(EQueryEntitiesFlags f)
 	{
 		typename t = EQueryEntitiesFlags;

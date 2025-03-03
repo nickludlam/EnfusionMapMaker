@@ -42,7 +42,7 @@
       }
 
       .resource-depot-tooltip {
-          color: rgb(59, 227, 205);
+          color: rgb(132, 132, 132);
           font-size: 17px;
           font-weight: normal;
           text-shadow: 1px 1px 2px black;
@@ -68,12 +68,11 @@
 
     <script lang="text/javascript">
       function initMap() {
-        // Configure the map bounds for this particular map
-        var mapBounds = [[0,0], [12800, 12800]];
+        // Configure the map bounds for this particular map, and add some padding
+        var mapBounds = gameCoordsToBounds([0,0], [12800, 12800], 2000);
 
         // Below here should be mostly the same for each map
-        var mapPadding = 2000;
-        var mapCenter = mapBounds[0].map((val, index) => (val + mapBounds[1][index]) / 2);
+        var mapCenter = mapCenterFromBounds(mapBounds);
 
         // Create the map and add the markers
         var map = makeMap(mapBounds, {
@@ -84,13 +83,10 @@
           center: mapCenter,
         });
 
-        var paddedMapBounds = [
-          [mapBounds[0][0] - mapPadding, mapBounds[0][1] - mapPadding],
-          [mapBounds[1][0] + mapPadding, mapBounds[1][1] + mapPadding]
-        ];
-        map.setMaxBounds(paddedMapBounds);
+        map.setMaxBounds(mapBounds);
         // center the map on the center of the map bounds
 
+        // Add the markers for each supply location
         addClusteredMapMarkers(map, supplyLocations);
        
         // Set up our two classes of labels matching below

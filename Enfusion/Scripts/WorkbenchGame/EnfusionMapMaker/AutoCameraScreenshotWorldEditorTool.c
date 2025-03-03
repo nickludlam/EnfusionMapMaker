@@ -1,19 +1,20 @@
-[WorkbenchToolAttribute(name: "Auto Camera Movement", description: "Will automatically create screenshots of an area.", wbModules: {"WorldEditor"}, awesomeFontCode: 0xf030)]
-class AutoCameraMovementWorldEditorTool: WorldEditorTool
+[WorkbenchToolAttribute(name: "Auto Camera Screenshot", description: "Automatically create screenshots of an area of a map.", wbModules: {"WorldEditor"}, awesomeFontCode: 0xf447)]
+class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 {
-    // This is a WORLD EDITOR tool, so open up your required map first!
+    // Name: Auto Camera Screenshot Tool
+    // Author: Bewilderbeest <bewilder@recoil.org>
 
-	// Notes
+    // This is a WORLD EDITOR tool, so open up your required map first.
 
     // Since we cannot fully control the camera in the World Editor,
     // this requires the user to set the FOV to 15, and the farPlane
-    // distance to ~ 4500. This script will yield incorrect results
+    // distance to ~ 5000. This script will yield incorrect results
     // otherwise!
 
-    // The camera will start at m_StartCoordsX, m_StartCoordsZ
-    // and step by m_StepSize in each axis until it reaches
-    // m_EndCoordsX, m_EndCoordsZ, generating screenshots into your
-    // $profile directory.
+    // The camera will start at m_StartCoords and step by m_StepSize
+    // in each axis until it reaches m_EndCoordsX, generating
+    // screenshots into your $profile directory, which is usually
+    // C:\Users\<NAME>\Documents\My Games\ArmaReforgerWorkbench\profile\
 
     // This screenshot capture process has been tested by me to work
     // when you fullscreen the editor application using F11. So to
@@ -28,53 +29,50 @@ class AutoCameraMovementWorldEditorTool: WorldEditorTool
     // to allow for async operations to complete. These might need
     // tuning if your screenshots are discontinuous or inconsistent
 
-    // During capture, the escape key will allow you to stop the
-    // process, because you cannot access the button if the editor
-    // camera is full screen!
+    // During capture, the escape key will allow you to stop the process,
+    // because you cannot access the button if the editor camera is full screen!
 
 	
-	[Attribute("500", UIWidgets.Auto, "X start position.")]
-	int m_StartCoordsX = 200;
-
-	[Attribute("200", UIWidgets.Auto, "Z start position.")]
-	int m_StartCoordsZ = 200;
+	[Attribute("200 0 200", UIWidgets.Coords, "Camera start", "", null, "Camera Movement")]
+	vector m_StartCoords;
 	
-	[Attribute("12800", UIWidgets.Auto, "X end position.")]
-	int m_EndCoordsX = 12800;
+	[Attribute("12800 0 12800", UIWidgets.Coords, "Camera end", "", null, "Camera Movement")]
+	vector m_EndCoords;
 	
-	[Attribute("12800", UIWidgets.Auto, "Z end position.")]
-	int m_EndCoordsZ = 12800;
-
-	[Attribute("100", UIWidgets.Auto, "Camera step size")]
-	int m_StepSize = 100.0;
-
-	[Attribute("950", UIWidgets.Auto, "Camera height")]
-	int m_CameraHeight = 950;
+	[Attribute("950", UIWidgets.Auto, "Camera height", "", null, "Camera Movement")]
+	int m_CameraHeight;
 	
-	[Attribute("0", UIWidgets.CheckBox, "Camera height is absolute, not relative to terrain height")]
-	bool m_AbsoluteCameraHeight = false;
+	[Attribute("0", UIWidgets.CheckBox, "Camera height is absolute, not relative to terrain height", "", null, "Camera Movement")]
+	bool m_AbsoluteCameraHeight;
 
-	[Attribute("700", UIWidgets.Auto, "Sleep after incremental camera movement (ms)")]
-	float m_MoveSleep = 700;
+    [Attribute("100", UIWidgets.Auto, "Camera step size", "", null, "Camera Movement")]
+	int m_StepSize;
 
-	[Attribute("2000", UIWidgets.Auto, "Sleep after a large amount of camera movement (ms)")]
-	float m_DiscontinuousMoveSleep = 2000;
+	[Attribute("700", UIWidgets.Auto, "Sleep after incremental camera movement (ms)", "", null, "Timing")]
+	float m_MoveSleep;
 
-	[Attribute("200", UIWidgets.Auto, "Sleep after screenshot call (ms)")]
-	float m_ScreenshotSleep = 200;
+	[Attribute("2000", UIWidgets.Auto, "Sleep after a large amount of camera movement (ms)", "", null, "Timing")]
+	float m_DiscontinuousMoveSleep;
+
+	[Attribute("200", UIWidgets.Auto, "Sleep after screenshot call (ms)", "", null, "Timing")]
+	float m_ScreenshotSleep;
 	
-	[Attribute("mapoutput", UIWidgets.Auto, "Output filename predix")]
-	string m_outputDirectory = "mapoutput";
+	[Attribute("mapoutput", UIWidgets.Auto, "Output filename predix", "", null, "Screenshot output")]
+	string m_outputDirectory;
 	
-	[Attribute("eden", UIWidgets.Auto, "Output filename predix")]
-	string m_outputFilePrefix = "eden";
+	[Attribute("eden", UIWidgets.Auto, "Output filename predix", "", null, "Screenshot output")]
+	string m_outputFilePrefix;
 
+  	[Attribute("_tile.png", UIWidgets.Auto, "Tile filename suffix (must match the python code)", "", null, "Advanced")]
+	string m_tileFilenameSuffix;
+
+    // Loop state
 	private bool m_InCaptureLoop;
 	private bool m_CancelCurrentLoop;
 	
 	[ButtonAttribute("Position Camera")]
 	void PositionCamera() {
-		MoveCamera(m_StartCoordsX, m_StartCoordsZ, m_CameraHeight, m_AbsoluteCameraHeight);
+		MoveCamera(m_StartCoords[0], m_StartCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
 	}
 	
 	[ButtonAttribute("Stop Capture")]
@@ -105,39 +103,38 @@ class AutoCameraMovementWorldEditorTool: WorldEditorTool
 		m_CancelCurrentLoop = false;
 		
 		Print("Performing initial camera move");
-		MoveCamera(m_StartCoordsX, m_StartCoordsZ, m_CameraHeight, m_AbsoluteCameraHeight);
-		Print("Waiting for asset streaming to finish");
-		Sleep(3000);
+		MoveCamera(m_StartCoords[0], m_StartCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
+
+        for (int i = 0; i < 5; i++) {
+            Print("Starting capture in " + (5 - i) + " seconds");
+            Sleep(1000);
+
+            // Early out here after the sleep, in case the user already aborted the loop
+	    	if (m_CancelCurrentLoop) {
+                m_InCaptureLoop = false;
+                Print("Capture loop aborted");
+			    return;
+    		}
+        }
 		
-		// Early out here after the sleep, in case the user already aborted the loop
-		if (m_CancelCurrentLoop) {
-			return;
-		}
-		
-		int xDistance = m_EndCoordsX - m_StartCoordsX;
-		int zDistance = m_EndCoordsZ - m_StartCoordsZ;
+		int xDistance = m_EndCoords[0] - m_StartCoords[0];
+		int zDistance = m_EndCoords[2] - m_StartCoords[2];
 		
 		int stepCountX = xDistance / m_StepSize;
 		int stepCountZ = zDistance / m_StepSize;
 		
 		Print("Starting capture loop");
-		DoLoop(m_StartCoordsX, m_StartCoordsZ, m_StepSize, m_CameraHeight, stepCountX, stepCountZ);
+		DoLoop(m_StartCoords[0], m_StartCoords[2], m_StepSize, m_CameraHeight, stepCountX, stepCountZ);
 		Print("Finished capture");
 	}
 	
-	override void OnActivate()
-	{
-	}
-
 	override void OnDeActivate()
 	{
 		m_CancelCurrentLoop = true;
 	}
 	
 	// We loop over Z inside X, so we travel vertically in strips, slowly crossing right. Z is North, X is East.
-	void DoLoop(int initialX, int initialZ, int stepSize, int camHeight, int stepCountX, int stepCountZ) {
-		string tileSuffix = "_tile.png";
-		
+	void DoLoop(int initialX, int initialZ, int stepSize, int camHeight, int stepCountX, int stepCountZ) {		
 		string outputDirectory = "$profile:" + m_outputDirectory;
 		PrintFormat("Making directory %1", outputDirectory);
 		
@@ -171,7 +168,7 @@ class AutoCameraMovementWorldEditorTool: WorldEditorTool
 				}
 			
 				// check for the cropped tile version
-				string tilePath = outputPath + tileSuffix;
+				string tilePath = outputPath + m_tileFilenameSuffix;
 				if (FileIO.FileExist(tilePath)) {
 					// Skip!
 					PrintFormat("Skipping completed tile %1", tilePath);
