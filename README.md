@@ -66,7 +66,7 @@ At any point you may interrupt the process, and when resuming, it will continue 
 
 ## Creating tiles - Cropping
 
-There are two scripts which are used to create tile sets for the webpages. The first script is `Scripts/crop_screenshots.py`, which crops the screenshots to the correct size.
+There are two Python scripts which are used to create tile sets for the webpages. The first script is `Scripts/crop_screenshots.py`, which crops the screenshots to the correct size. Both of these scripts require the [pillow](https://pypi.org/project/pillow/) image processing library.
 
 ```
 python crop_screenshots.py <input directory> <output directory> [-m]
@@ -78,6 +78,16 @@ If you're using my default tile setup, then the sizes are already set, so you do
 
 If they have repetition at the borders, edit the `TILE_OFFSET` variable by increasing the negative value, and re-running the script. This will move the tiles closer together, and reduce the repetition. Once you have found the correct value, you can then run the script without the `-m` flag, and it will create the initial croped tile images to the correct size.
 
-# Creating tiles - Zoom levels
+## Creating tiles - Zoom levels
 
 The second script is `Scripts/create_zoom_levels.py`, which creates the tiles from the cropped screenshots.
+
+```
+python create_zoom_levels.py <input directory> [-f]
+```
+
+You simply point this at the directory where your LOD 0 images have been created from the `crop_screeenshots.py` script.
+
+## Compression
+
+Lastly, there is a bash script named `compress_tiles.sh` which can use [ImageMagick](https://imagemagick.org) to further compress the tiles if required. Edit the script to configure the desired directory paths.

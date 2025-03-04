@@ -1,3 +1,4 @@
-Web/LODS/*
+Web/LODS/
+Web/Compressed_LODS/
 .DS_Store
 Enfusion/resourceDatabase.rdb

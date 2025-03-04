@@ -13,7 +13,6 @@ class MapTile():
 
     @staticmethod
     def get_glob():
-        # LOD/x/z/tile.jpg
         return "*/*/*/tile.jpg"
 
     def __init__(self, xCoord: int, zCoord: int, lod: int, basedir: str):
@@ -65,7 +64,7 @@ class MapTileContainer():
     basedir: str
     map_tiles: dict[int, list[MapTile]]
     zoom_level: int # 5 is the most zoomed in, 0 is the least zoomed in
-    _tile_size: int|None = None
+    _tile_size: int
 
     @classmethod
     def from_directory(cls, directory: str) -> "MapTileContainer":
@@ -130,7 +129,7 @@ class MapTileContainer():
     def get_tiles(self, lod: int, min_x: int, min_z: int, max_x: int, max_z: int) -> list[MapTile]:
         return [tile for tile in self.map_tiles[lod] if tile.xCoord >= min_x and tile.xCoord <= max_x and tile.zCoord >= min_z and tile.zCoord <= max_z]
 
-    def make_lod(self, lod: int, overwrite_existing: bool = False) -> int:
+    def make_lod(self, lod: int, overwrite_existing: bool = False):
         if lod == 0:
             raise Exception("Cannot create LOD 0 - This must come from the source images")
         
