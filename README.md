@@ -1,17 +1,12 @@
 # Enfusion Map Maker
 
-This project implements a tool for the Enfusion World Editor which automates taking screenshots of the map at regular intervals. The resulting screenshots can then be processed into tiles suitable for integration with a panning/zooming tiled map system like LeafletJS.
+This project implements two tools for the Enfusion World Editor. The first automates taking screenshots of the map at regular intervals. The resulting screenshots can then be processed into tiles suitable for integration with a panning/zooming tiled map system like LeafletJS. The second plugin can run queries against the map, and extract location data into a JSON file.
 
-The Workbench Plugin is found within the `Enfusion/` folder, and should be added as a local plug-in. The Python script to create the map tiles is inside the `Scripts/` directory, and requires the Python Image Library to work.
-
-Lastly there is an example HTML page which shows how to implement coordinate conversions which allow the use in-game coordinates within the web page to mark elements of the map.
-
-## Creating tiles
-
-To create the tiles, first run the Enfusion World Editor and load the map you want to create tiles for. Then, open the Workbench Plugin and click the "Start" button. This will start taking screenshots of the map at regular intervals. The screenshots are saved to the `Screenshots/` directory.
-
+Both of these plugins are used for the Everon Supply Location map, which can be found in the `Web/` folder. The dynamic, scrolling map is made using the [LeafletJS](https://leafletjs.com) library.
 
 # Guide
+
+This requires you to have installed the Arma Reforger Tools, and have some kind of Python interpreter installed. I developed this using WSL Linux, so if you use a different installation of Python, then there might be minor issues with the Python scripts.
 
 1. Open Arma Reforger Tools
 
@@ -44,9 +39,7 @@ chess piece icon.
 
 ![Configure camera manually](images/camera_settings.png)
 
-camera_settings
-
-IMPORTANT: Ensure the editor camera is set to an FOV of 15, and a far plane greater than 4500. This cannot be automated, so you must do this manually, and there are no warnings if you forget.
+**IMPORTANT:** Ensure the editor camera is set to an FOV of 15, and a far plane greater than 4500. This cannot be automated, so you must do this manually, and there are no warnings if you forget.
 
 9. Go to **View -> Toggle Visualisers** and disable all visualisers. This will prevent them from appearing in the screenshots.
 
@@ -91,3 +84,11 @@ You simply point this at the directory where your LOD 0 images have been created
 ## Compression
 
 Lastly, there is a bash script named `compress_tiles.sh` which can use [ImageMagick](https://imagemagick.org) to further compress the tiles if required. Edit the script to configure the desired directory paths.
+
+## Extracting the location information
+
+The guide on using the Resource Query Tool is not yet finished.
+
+# License
+
+This project is licenced under the **Arma Public License Share Alike (APL-SA)** license. See the [LICENSE](LICENSE) file.
