@@ -333,5 +333,5 @@ if __name__ == "__main__":
         screenshot_processor.make_large_map(os.path.join(args.output_dir, "test_map.jpeg"))
     else:
         print("Creating initial tiles")
-        screenshot_processor.make_initial_tiles(args.output_dir, 5)
+        screenshot_processor.make_initial_tiles(args.output_dir, 0)
 

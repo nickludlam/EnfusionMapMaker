@@ -11,20 +11,73 @@ Lastly there is an example HTML page which shows how to implement coordinate con
 To create the tiles, first run the Enfusion World Editor and load the map you want to create tiles for. Then, open the Workbench Plugin and click the "Start" button. This will start taking screenshots of the map at regular intervals. The screenshots are saved to the `Screenshots/` directory.
 
 
-### The process
-Open Arma Reforger Tools
-Select or add the Enfusion Map Maker plugin and start it
-Open the Enfusion World Editor with your map of choice
+# Guide
 
-Find the Castle/Tower/Rook chess icon along the toolbar at the top
-Open the panel on the right side of the screen
-Configure the plugin as required
+1. Open Arma Reforger Tools
 
-IMPORTANT: Make sure your camera is set to an FOV of 15, and a far plane of 5000, this cannot be automated
+![Add existing project](images/empty_projects_list.png)
 
-View -> Toggle Visualisers
-Also disable objects and flags which render as a large white cylinder. Not currently automated, but they are generally the `ConflictMilitaryBase` prefabs.
+2. Choose add existing project
 
-Positions with existing screenshots, or cropped tiles are automatically skipped
+![Add existing](images/add_existing_project.png)
 
-You can press escape to stop the process at any time, the camera will reset back to the initial position
+3. Navigate to the Enfusion folder, and select addon.gproj
+
+![Launch the Map Maker project](images/map_maker_visible.png)
+
+4. Open the Enfusion World Editor with your map of choice
+
+## Auto Screenshot Tool
+
+5. Locate the Auto Screenshot Maker Tool in the tool bar. It has a castle/rook/tower
+chess piece icon.
+
+![Auto Screenshot Maker Tool icon](images/auto_screenshot_icon.png)
+
+6. Open the right panel, and configure the plugin as required
+
+![Auto Screenshot Maker Tool panel](images/auto_camera_screenshot_tool.png)
+
+7. Configure the panel to your needs, and press the start button
+
+8. Configure the game camera in the editor to have an FOV of 15, and a far plane of 5000
+
+![Configure camera manually](images/camera_settings.png)
+
+camera_settings
+
+IMPORTANT: Ensure the editor camera is set to an FOV of 15, and a far plane greater than 4500. This cannot be automated, so you must do this manually, and there are no warnings if you forget.
+
+9. Go to **View -> Toggle Visualisers** and disable all visualisers. This will prevent them from appearing in the screenshots.
+
+10. Optionally disable elements in the map which will still present debug visualisations but are not disabled with the above step. Typically these are military installation prefabs named `ConflictMilitaryBase`, which render as a large white cylinder. 
+
+11. Run a test of the process by pressing the **Start capture** button at the bottom of the panel, and you should start seeing the camera move around the map, taking screenshots at regular intervals, saving files to the specified directory.
+
+The output directory is configured as the `$profile` directory of Workbench, which is typically `C:\Users\USERNAME\Documents\My Games\ArmaReforgerWorkbench\profile\`.
+
+Now stop the process by either hitting the escape key, or **Stop capture** button, and delete these test screenshots, as there's one more step to do before you can use them.
+
+12. Immediately after starting the process, hit F11 to ensure the camera is full screen. This is currently the only effective way to ensure the camera size is consistent for each capture session. All the defaults listed here are configured for a 1440p monitor, so if you have a different resolution, you may need to adjust the camera settings.
+
+Now let the process run until it completes, and you have a full set of screenshots.
+
+At any point you may interrupt the process, and when resuming, it will continue from where it left off. You can even run the `Scripts/crop_screenshots.py` to crop the screenshots to the correct size, and then resume the process. It will detect both uncropped and cropped images. This is useful if you are running low on disk space, as the PNG screenshots can be large.
+
+## Creating tiles - Cropping
+
+There are two scripts which are used to create tile sets for the webpages. The first script is `Scripts/crop_screenshots.py`, which crops the screenshots to the correct size.
+
+```
+python crop_screenshots.py <input directory> <output directory> [-m]
+```
+
+If you're using my default tile setup, then the sizes are already set, so you don't need to dial in a crop size. If you do want a custom tile size, the process is this.
+
+1. Edit the `crop_screenshots.py` script and set the `TILE_SIZE` variable to the size you want. This should be larger than the target size, so you see repetition when they are composited together. Then run the script with the `-m` flag, which will create an output image with all the tiles you've collected stitched together.
+
+If they have repetition at the borders, edit the `TILE_OFFSET` variable by increasing the negative value, and re-running the script. This will move the tiles closer together, and reduce the repetition. Once you have found the correct value, you can then run the script without the `-m` flag, and it will create the initial croped tile images to the correct size.
+
+# Creating tiles - Zoom levels
+
+The second script is `Scripts/create_zoom_levels.py`, which creates the tiles from the cropped screenshots.
