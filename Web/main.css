@@ -1,0 +1,55 @@
+body {
+  font-family: sans-serif;
+  padding: 0;
+  margin: 0;
+  background-color: #2c2c2c;
+  color: white;
+}
+
+.rubik-dirt-regular-logo {
+  font-family: "Rubik Dirt", system-ui;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 50px;
+}
+
+.nodecoration {
+  text-decoration: none;
+  color: rgb(245, 245, 75);
+}
+
+.footer {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+.footer a {
+  color: rgb(245, 245, 75);
+}
+
+.centered-logo div {
+    margin-top: 10px;
+}
+
+.centered-heading {
+    text-align: center;
+}
+
+.navbar {
+    background-color: #2c2c2c;
+    color: white;
+    text-align: center;
+    padding: 5px;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.image-container-flex {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+}
