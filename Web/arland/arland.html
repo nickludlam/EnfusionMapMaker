@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test map</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <script src="leaflet/leaflet.js"></script>
+    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
+    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
+    <script src="leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
+    <script src="leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
+    
+    <style type="text/css">
+      /* Map */
+      #map {
+        width: 100%;
+        height: 70vh; 
+        background-color: #2B3D4B;
+        margin-bottom: 30px;
+      }
+
+      .common-tooltip {
+          background-color: transparent;
+          border: transparent;
+          box-shadow: none;
+      }
+
+      .town-name-tooltip {
+          color: white;
+          font-size: 19px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .resource-depot-tooltip {
+          color: rgb(160, 235, 255);
+          font-size: 16px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .military-base-tooltip {
+          color: rgb(222, 222, 222);
+          font-size: 15px;
+          font-weight: normal;
+          text-shadow: 1px 1px 2px black;
+      }
+
+      .hidden-tooltip {
+          visibility: hidden;
+      }
+    </style>
+
+    <script src="reforger-map.js"></script>
+    <script src="arland-locations.js"></script>
+    <script src="arland-supply-locations.js"></script>
+
+    <script lang="text/javascript">
+        var map;
+
+        function initMap() {
+          // Configure the map bounds for this particular map, and add some padding
+          var mapBounds = gameCoordsToBounds([0,0], [4000, 4000]);
+  
+          // Create the map and add the markers
+          map = makeMap(
+            '{z}/{x}/{y}/tile.jpg',
+            1,
+            mapBounds,
+            0.1, // extra 10% padding to the map
+            {
+              fullscreenControl: true,
+              fullscreenControlOptions: {
+                position: 'topleft'
+              },
+              attributionControl: false,
+            }
+          );
+          
+
+          // Add the markers for each supply location
+          addClusteredMapMarkers(map, supplyLocations);
+      
+          // Set up our two classes of labels matching below
+          var labelClassName = "common-tooltip town-name-tooltip";
+          labeledLocations.forEach(labeledLocation => {
+            addMapLabel(map, labeledLocation.gameCoords, labeledLocation.name, labelClassName);
+          });
+
+          // debug click handler
+          map.on("click", function (e) {
+             var gameCoords = latLngToGameCoords(e.latlng);
+             console.log(gameCoords);
+          });
+
+          //addGridDebug(map);
+        }
+
+    </script>
+</head>
+<body onload="initMap()">
+    <h1>Map Test</h1>
+    <div id="map"></div>
+</body>
+</html>

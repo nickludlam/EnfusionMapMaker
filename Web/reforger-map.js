@@ -1,9 +1,10 @@
-const max_zoom = 5;
 const edge_to_center_offset = 50; // from the camera looking down into the center of LOD0 tiles
+const MAX_ZOOM = 5; // If this is changed, it throws off the coordinate conversion - I don't understand why!
 
-function makeMap(mapTilePathTemplate, bounds, extraMapConfiguration) {
-  var zoom = 0;
-  var center = mapCenterFromBounds(bounds);
+function makeMap(mapTilePathTemplate, initialZoom, bounds, mapBufferRatio, extraMapConfiguration) {
+  var zoom = initialZoom;
+  var center = bounds.getCenter();
+  console.log(center);
 
   var urlCenterZoom = getCenterZoomFromURL();
   if (urlCenterZoom) {
@@ -18,18 +19,18 @@ function makeMap(mapTilePathTemplate, bounds, extraMapConfiguration) {
     transformation: new L.Transformation(1/12.501, 0, -1/12.501, 0), // I had to eyeball this scale factor!
 
     scale(zoom) {
-        return Math.pow(2, zoom);
+      return Math.pow(2, zoom);
     },
 
     zoom(scale) {
-        return Math.log(scale) / Math.LN2;
+      return Math.log(scale) / Math.LN2;
     },
 
     distance(latlng1, latlng2) {
-        const dx = latlng2.lng - latlng1.lng,
-            dy = latlng2.lat - latlng1.lat;
+      const dx = latlng2.lng - latlng1.lng,
+      dy = latlng2.lat - latlng1.lat;
 
-        return Math.sqrt(dx * dx + dy * dy);
+      return Math.sqrt(dx * dx + dy * dy);
     },
 
     infinite: true
@@ -44,23 +45,26 @@ function makeMap(mapTilePathTemplate, bounds, extraMapConfiguration) {
   
   // Invert the y axis so we can use the same tile naming scheme as the game
   L.TileLayer.InvertedY = L.TileLayer.extend({
-      getTileUrl: function(tilecoords) {
-          tilecoords.y = -(tilecoords.y + 1);
-          return L.TileLayer.prototype.getTileUrl.call(this, tilecoords);
-      }
+    getTileUrl: function(tilecoords) {
+      tilecoords.y = -(tilecoords.y + 1);
+      return L.TileLayer.prototype.getTileUrl.call(this, tilecoords);
+    }
   });
 
   // create a tile layer, and invert the z axis as we name by LODs
   tileLayer = new L.TileLayer.InvertedY(mapTilePathTemplate, {
-      maxZoom: max_zoom,
-      minZoom: 0,
-      bounds: bounds,
-      maxNativeZoom: max_zoom,
-      zoomReverse: true,
+    maxZoom: MAX_ZOOM,
+    minZoom: 0,
+    zoomReverse: true,
+    bounds: bounds,
   }).addTo(map);
 
+  var maxBounds = map.getBounds();
+  var maxBoundsJSON = maxBounds.toBBoxString();
+  console.log(`getMaxBounds: ${maxBoundsJSON}`);
+
   // Add a bit of padding so the map feels less annoying when zoomed out
-  map.setMaxBounds(addPaddingToBounds(bounds, 2000));
+  map.setMaxBounds(addPaddingToBounds(map.getBounds(), mapBufferRatio));
 
   // Constaly update the URL with the current map center
   // map.on('moveend', function() {
@@ -83,23 +87,23 @@ function makeMap(mapTilePathTemplate, bounds, extraMapConfiguration) {
 }
 
 // Add regular (unclustered) markers
-function addMapMarkers(map, resourceCoordinatesList) {
-  resourceCoordinatesList.forEach(coord => {
-      L.marker(gameCoordsToLatLng([coord[0], coord[1]])).addTo(map);
+function addMapMarkers(map, gameCoordinatesList) {
+  gameCoordinatesList.forEach(coord => {
+    L.marker(gameCoordsToLatLng([coord[0], coord[1]])).addTo(map);
   });
 }
 
 // Add clustered markers using the Leaflet.markercluster plugin
 function addClusteredMapMarkers(map, resourceCoordinatesList) {
   var clusteredMarkers = L.markerClusterGroup({
-    disableClusteringAtZoom : max_zoom
+    disableClusteringAtZoom : map.getMaxZoom()
   });
 
   resourceCoordinatesList.forEach(coord => {
-      var coordLatLng = gameCoordsToLatLng([coord[0], coord[1]]);
-      //var coordMarker = L.marker(coordLatLng).addTo(map); // add directly to map
-      var coordMarker = L.marker(coordLatLng);
-      clusteredMarkers.addLayer(coordMarker);
+    var coordLatLng = gameCoordsToLatLng([coord[0], coord[1]]);
+    //var coordMarker = L.marker(coordLatLng).addTo(map); // add directly to map
+    var coordMarker = L.marker(coordLatLng);
+    clusteredMarkers.addLayer(coordMarker);
   });
 
   map.addLayer(clusteredMarkers);
@@ -148,30 +152,29 @@ function latLngToGameCoords(latlng) {
 function gameCoordsToBounds(coordPairMin, coordPairMax, padding=0) {
   coordPairMin = [coordPairMin[0] - padding, coordPairMin[1] - padding];
   coordPairMax = [coordPairMax[0] + padding, coordPairMax[1] + padding];
-  return [[coordPairMin[1], coordPairMin[0]], [coordPairMax[1], coordPairMax[0]]];
-}
-  
-function mapCenterFromBounds(bounds) {
-  return [(bounds[0][0] + bounds[1][0]) / 2, (bounds[0][1] + bounds[1][1]) / 2];
+  const min = gameCoordsToLatLng([coordPairMin[0], coordPairMin[1]]);
+  const max = gameCoordsToLatLng([coordPairMax[0], coordPairMax[1]]);
+  return L.latLngBounds(min, max);
 }
 
-function addPaddingToBounds(bounds, padding) {
-  return [[bounds[0][0] - padding, bounds[0][1] - padding], [bounds[1][0] + padding, bounds[1][1] + padding]];
+function addPaddingToBounds(bounds, bufferRatio) {
+  return bounds.pad(bufferRatio);
 }
 
 // Adds a grid debug which displays coordinates of each tile
 function addGridDebug(map) {
+  var maxZoom = map.getMaxZoom();
   L.GridLayer.GridDebug = L.GridLayer.extend({
-      createTile: function (coords) {
-        const tile = document.createElement('div');
-        tile.style.outline = '1px solid #111';
-        tile.style.fontWeight = 'bold';
-        tile.style.fontSize = '14pt';
-        tile.style.color = 'red';
-        tile.innerHTML = [max_zoom-coords.z, coords.x, -(coords.y+1)].join('/');
-        return tile;
-      },
-    });
+    createTile: function (coords) {
+      const tile = document.createElement('div');
+      tile.style.outline = '1px solid #111';
+      tile.style.fontWeight = 'bold';
+      tile.style.fontSize = '14pt';
+      tile.style.color = 'red';
+      tile.innerHTML = [maxZoom - coords.z, coords.x, -(coords.y+1)].join('/');
+      return tile;
+    },
+  });
     
   L.gridLayer.gridDebug = function (opts) {
       return new L.GridLayer.GridDebug(opts);

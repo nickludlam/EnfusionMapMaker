@@ -71,13 +71,15 @@
 
     <script lang="text/javascript">
       function initMap() {
-        // Configure the map bounds for this particular map, and add some padding
+        // Configure the map bounds for this particular map as captured with the workbench tool
         var mapBounds = gameCoordsToBounds([0,0], [12800, 12800]);
 
         // Create the map and add the markers
         var map = makeMap(
           'Compressed_LODS/{z}/{x}/{y}/tile.jpg',
+          0,
           mapBounds,
+          0.2,
           {
             fullscreenControl: true,
             fullscreenControlOptions: {

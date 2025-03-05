@@ -15,7 +15,9 @@ mkdir -p "$DEST_DIR"
 find "$SOURCE_DIR" -type f -name "*.jpg" | while read -r file; do
     # Calculate relative path from source directory
     relative_path="${file#$SOURCE_DIR/}"
-    
+
+    echo "Processing $relative_path"
+
     # Create corresponding directory structure in destination
     mkdir -p "$(dirname "$DEST_DIR/$relative_path")"
     

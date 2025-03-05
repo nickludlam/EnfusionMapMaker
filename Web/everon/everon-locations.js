@@ -1,6 +1,8 @@
-// This exports two key arrays:
+// This exports three arrays:
 // labeledTownLocations: Locations of towns and other named locations
 // labeledResourceLocations: Locations of resource depots
+// labeledMilitaryBaseLocations: Locations of military bases
+
 
 // Locations
 var locSaintPhillipe = [4500.872, 10776.053];
