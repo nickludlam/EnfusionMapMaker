@@ -87,22 +87,31 @@ function makeMap(mapTilePathTemplate, initialZoom, bounds, mapBufferRatio, extra
 }
 
 // Add regular (unclustered) markers
-function addMapMarkers(map, gameCoordinatesList) {
+function addMapMarkers(map, gameCoordinatesList, customIcon = null) {
+  iconParams = {}
+  if (customIcon) {
+    { icon: customIcon }
+  }
+
   gameCoordinatesList.forEach(coord => {
-    L.marker(gameCoordsToLatLng([coord[0], coord[1]])).addTo(map);
+    L.marker(gameCoordsToLatLng([coord[0], coord[1]]), iconParams).addTo(map);
   });
 }
 
 // Add clustered markers using the Leaflet.markercluster plugin
-function addClusteredMapMarkers(map, resourceCoordinatesList) {
+function addClusteredMapMarkers(map, resourceCoordinatesList, customIcon = null) {
+  var markerParams = {}
+  if (customIcon) {
+    markerParams = { icon: customIcon }
+  }
+
   var clusteredMarkers = L.markerClusterGroup({
     disableClusteringAtZoom : map.getMaxZoom()
   });
 
   resourceCoordinatesList.forEach(coord => {
     var coordLatLng = gameCoordsToLatLng([coord[0], coord[1]]);
-    //var coordMarker = L.marker(coordLatLng).addTo(map); // add directly to map
-    var coordMarker = L.marker(coordLatLng);
+    var coordMarker = L.marker(coordLatLng, markerParams);
     clusteredMarkers.addLayer(coordMarker);
   });
 

@@ -5,13 +5,13 @@
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-    <link rel="stylesheet" href="leaflet/leaflet.css" />
-    <script src="leaflet/leaflet.js"></script>
-    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
-    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
-    <script src="leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
-    <link rel="stylesheet" href="leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
-    <script src="leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
+    <link rel="stylesheet" href="../leaflet/leaflet.css" />
+    <script src="../leaflet/leaflet.js"></script>
+    <link rel="stylesheet" href="../leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
+    <link rel="stylesheet" href="../leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
+    <script src="../leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="../leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
+    <script src="../leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
     
     <style type="text/css">
       /* Map */
@@ -54,55 +54,46 @@
       }
     </style>
 
-    <script src="reforger-map.js"></script>
+    <script src="../reforger-map.js"></script>
     <script src="arland-locations.js"></script>
     <script src="arland-supply-locations.js"></script>
 
     <script lang="text/javascript">
-        var map;
+      var map;
 
-        function initMap() {
-          // Configure the map bounds for this particular map, and add some padding
-          var mapBounds = gameCoordsToBounds([0,0], [4000, 4000]);
-  
-          // Create the map and add the markers
-          map = makeMap(
-            '{z}/{x}/{y}/tile.jpg',
-            1,
-            mapBounds,
-            0.1, // extra 10% padding to the map
-            {
-              fullscreenControl: true,
-              fullscreenControlOptions: {
-                position: 'topleft'
-              },
-              attributionControl: false,
-            }
-          );
-          
+      function initMap() {
+        // Configure the map bounds for this particular map, and add some padding
+        var mapBounds = gameCoordsToBounds([0,0], [4000, 4000]);
 
-          // Add the markers for each supply location
-          addClusteredMapMarkers(map, supplyLocations);
-      
-          // Set up our two classes of labels matching below
-          var labelClassName = "common-tooltip town-name-tooltip";
-          labeledLocations.forEach(labeledLocation => {
-            addMapLabel(map, labeledLocation.gameCoords, labeledLocation.name, labelClassName);
-          });
+        // Create the map and add the markers
+        map = makeMap(
+          'LODS/{z}/{x}/{y}/tile.jpg',
+          1,
+          mapBounds,
+          0.1, // extra 10% padding to the map
+          {
+            fullscreenControl: true,
+            fullscreenControlOptions: {
+              position: 'topleft'
+            },
+            attributionControl: false,
+          }
+        );
 
-          // debug click handler
-          map.on("click", function (e) {
-             var gameCoords = latLngToGameCoords(e.latlng);
-             console.log(gameCoords);
-          });
-
-          //addGridDebug(map);
-        }
+        // Add the markers for each supply location
+        addClusteredMapMarkers(map, supplyLocations);
+    
+        // Set up our two classes of labels matching below
+        var labelClassName = "common-tooltip town-name-tooltip";
+        labeledLocations.forEach(labeledLocation => {
+          addMapLabel(map, labeledLocation.gameCoords, labeledLocation.name, labelClassName);
+        });
+      }
 
     </script>
 </head>
 <body onload="initMap()">
-    <h1>Map Test</h1>
-    <div id="map"></div>
+  <h1>Arland Conflict Supply Locations</h1>
+  <div id="map"></div>
 </body>
 </html>

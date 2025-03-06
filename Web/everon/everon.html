@@ -14,15 +14,15 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-    <link rel="stylesheet" href="leaflet/leaflet.css" />
-    <script src="leaflet/leaflet.js"></script>
-    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
-    <link rel="stylesheet" href="leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
-    <script src="leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
-    <link rel="stylesheet" href="leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
-    <script src="leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
+    <link rel="stylesheet" href="../leaflet/leaflet.css" />
+    <script src="../leaflet/leaflet.js"></script>
+    <link rel="stylesheet" href="../leafletPlugins/leafletMarkerCluster/MarkerCluster.css" />
+    <link rel="stylesheet" href="../leafletPlugins/leafletMarkerCluster/MarkerCluster.Default.css" />
+    <script src="../leafletPlugins/leafletMarkerCluster/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="../leafletPlugins/leafletFullScreen/Control.FullScreen.css" />
+    <script src="../leafletPlugins/leafletFullScreen/Control.FullScreen.js"></script>
     
-    <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="../main.css" />
     <style type="text/css">
       /* Map */
       #map {
@@ -67,7 +67,7 @@
     <!-- Import one supply-locations per page -->
     <script src="everon-supply-locations.js"></script>
     <script src="everon-locations.js"></script>
-    <script src="reforger-map.js"></script>
+    <script src="../reforger-map.js"></script>
 
     <script lang="text/javascript">
       function initMap() {
@@ -76,7 +76,7 @@
 
         // Create the map and add the markers
         var map = makeMap(
-          'Compressed_LODS/{z}/{x}/{y}/tile.jpg',
+          'LODS/{z}/{x}/{y}/tile.jpg',
           0,
           mapBounds,
           0.2,
@@ -90,7 +90,7 @@
         );
 
         // Add the markers for each supply location
-        addClusteredMapMarkers(map, supplyLocations);
+        addClusteredMapMarkers(map, supplyLocations, bulletPinIcon);
        
         // Set up our two classes of labels matching below
         var townLabelClassName = "common-tooltip town-name-tooltip";
@@ -110,37 +110,12 @@
 
         // Add our labels to the map
         defineLabelVisibility(map, 0, 4, '.common-tooltip', 'hidden-tooltip');
-        defineLabelVisibility(map, 1, 4, '.military-base-tooltip', 'hidden-tooltip');
-        
-        // debug click handler
-        map.on("click", function (e) {
-           var gameCoords = latLngToGameCoords(e.latlng);
-           console.log(gameCoords);
-        });       
+        defineLabelVisibility(map, 1, 4, '.military-base-tooltip', 'hidden-tooltip');  
       }
     </script>
 </head>
 <body onload="initMap()">
-  <div class="navbar">
-    <div class="rubik-dirt-regular-logo"><a class="nodecoration" href="index.html">ARMA Maps</a></div>
-  </div>
-  <div class="navbar">
-    <div class="">Everon Conflict Supply Locations</div>
-  </div>
-
-  <div class="container">
-    <div id="map"></div>
-    <div class="footer">
-      <p></p>
-      <div class="image-container-flex">
-        <div><a href="https://exd.gg/"><img width="90" src="exd_wht.png" alt="Exodus Gaming" /></a></div>
-        <div><a href="https://discord.exd.gg/"><img width="200" src="discord-button.png" alt="Discord" /></a></div>  
-      </div>
-      <p>In association with e<span style="color: red">X</span>odus. Join us on our Arma Reforger servers!</p>
-      <p>The code used to make this map can be found on <a href="https://github.com/nickludlam/EnfusionMapMaker">Github</a></p>
-    </div>
-
-
-  </div>
+  <h1>Everon Conflict Supply Locations</h1>
+  <div id="map"></div>
 </body>
 </html>
