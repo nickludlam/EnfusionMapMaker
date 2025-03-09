@@ -70,11 +70,16 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 	private bool m_InCaptureLoop;
 	private bool m_CancelCurrentLoop;
 	
-	[ButtonAttribute("Position Camera")]
-	void PositionCamera() {
+	[ButtonAttribute("Move to start")]
+	void PositionCameraStart() {
 		MoveCamera(m_StartCoords[0], m_StartCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
 	}
 	
+	[ButtonAttribute("Move to end")]
+	void PositionCameraEnd() {
+		MoveCamera(m_EndCoords[0], m_EndCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
+	}
+
 	[ButtonAttribute("Stop Capture")]
 	void StopCapture()
 	{
