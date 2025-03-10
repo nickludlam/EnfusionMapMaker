@@ -16,25 +16,24 @@ enum EQOutputMode {
 class EntityQueryWorldEditorTool: WorldEditorTool
 {	
     // Name: Entity Query Tool
-
 	
 	////////////////////////////
 	// State vars
 
-	World m_currentWorld;
-	ref array<IEntity> m_entityResults = null;
-	ref array<string> m_excludeStringArray = null;
-	
-	////////////////////////////
-	// Query category
+    World m_currentWorld;
+    ref array<IEntity> m_entityResults = null;
+    ref array<string> m_excludeStringArray = null;
+    
+    ////////////////////////////
+    // Query category
 
-	[Attribute(
-		category: "Query",
-		desc: "Bounds Min",
-		uiwidget: UIWidgets.Coords,
-		defvalue: "0 0 0"
-	)]
-	vector m_queryBoundsMin = Vector(0, 0, 0);
+    [Attribute(
+        category: "Query",
+        desc: "Bounds Min",
+        uiwidget: UIWidgets.Coords,
+        defvalue: "0 0 0"
+    )]
+    vector m_queryBoundsMin = Vector(0, 0, 0);
 
 	[Attribute(
 		category: "Query",
@@ -73,8 +72,8 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	)]
 	string m_exclusionTerms;
 
-	////////////////////////////
-	// Output category
+    ////////////////////////////
+    // Output category
 
 	// Dropdown to set the output mode
 	[Attribute(
@@ -140,14 +139,14 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		
 		// Gather our individual exclusion strings from the comma separated list
         m_excludeStringArray = new array<string>;
-		array<string> tmpStringSplit = new array<string>;
-		if (m_exclusionTerms.Length() > 0) {
-			m_exclusionTerms.Split(",", tmpStringSplit, true);
+        array<string> tmpStringSplit = new array<string>;
+        if (m_exclusionTerms.Length() > 0) {
+            m_exclusionTerms.Split(",", tmpStringSplit, true);
 
-			// trim them before adding
-			foreach(string s: tmpStringSplit) {
-				s.TrimInPlace();
-				PrintFormat("Adding exclusion string \"%1\"", s);
+            // trim them before adding
+            foreach(string s: tmpStringSplit) {
+                s.TrimInPlace();
+                PrintFormat("Adding exclusion string \"%1\"", s);
                 m_excludeStringArray.Insert(s);
 			}
 		}
@@ -274,21 +273,24 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	// Helper functions
 
     // This will convert the enum value to a string
-	string EQueryEntitiesFlagsToString(EQueryEntitiesFlags f)
-	{
-		typename t = EQueryEntitiesFlags;
+    string EQueryEntitiesFlagsToString(EQueryEntitiesFlags f)
+    {
+        typename t = EQueryEntitiesFlags;
 
-		int tVarCount = t.GetVariableCount();
-		for (int i = 0; i < tVarCount; i++) {
-			EQueryEntitiesFlags value;
-			t.GetVariableValue(null, i, value);
-			if (value && value == f) {
-				return t.GetVariableName(i);
-			}
-		}
+        int tVarCount = t.GetVariableCount();
+        for (int i = 0; i < tVarCount; i++) {
+            EQueryEntitiesFlags value;
+            t.GetVariableValue(null, i, value);
+            if (value && value == f) {
+                return t.GetVariableName(i);
+            }
+        }
 
 		return "unknown";
 	}
+
+
+    // Some dummy unused code to prep for raycasts to evaluate inside vs outside supplies
 
 	private const int 		TRACE_LAYER_MASK = EPhysicsLayerDefs.Projectile;
 	private const float 	MEASURE_INTERVAL = 1.0;
