@@ -1,9 +1,23 @@
-[WorkbenchToolAttribute(name: "Entity Query Tool", description: "Queries the map for resources, inside an AABB, and allows you to reject based on substring of the XOB path", wbModules: {"WorldEditor"}, awesomeFontCode: 0xf6e2)]
-class EntityQueryWorldEditorTool: WorldEditorTool
-{
-    // Name: Entity Query Tool
-    // Author: Bewilderbeest <bewilder@recoil.org>
+enum EQComponentSearchMode {
+	SUPPLIES,
+	VEHICLES
+}
 
+enum EQOutputMode {
+	CONSOLE,
+	FILE
+}
+
+[WorkbenchToolAttribute(
+	name: "Entity Query Tool",
+	description: "Queries the map for resources, inside an AABB, and allows you to reject based on substring of the XOB path",
+	wbModules: {"WorldEditor"},
+	awesomeFontCode: 0xf6e2)]
+class EntityQueryWorldEditorTool: WorldEditorTool
+{	
+    // Name: Entity Query Tool
+
+	
 	////////////////////////////
 	// State vars
 
@@ -30,19 +44,30 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	)]
 	vector m_queryBoundsMax = Vector(0, 0, 0);
 	
+	
 	// Dropdown to set the query enum
 	[Attribute(
 			category: "Query",
-			desc: "Entity query flags",
+			desc: "Entity component search mode",
+			uiwidget: UIWidgets.ComboBox,
+			enums: ParamEnumArray.FromEnum(EQComponentSearchMode),
+			defvalue: EQComponentSearchMode.SUPPLIES.ToString()
+	)]
+	EQComponentSearchMode m_componentSearchMode;
+
+	// Dropdown to set the query enum
+	[Attribute(
+			category: "Query",
+			desc: "Entity component query flags",
 			uiwidget: UIWidgets.ComboBox,
 			enums: ParamEnumArray.FromEnum(EQueryEntitiesFlags),
 			defvalue: EQueryEntitiesFlags.ALL.ToString()
 	)]
-	EQueryEntitiesFlags m_queryFlags;
+	EQueryEntitiesFlags m_componentQueryFlags;
 	
 	[Attribute(
 		category: "Query",
-		desc: "Comma separated exclusion words (case sensitive)",
+		desc: "Comma separated path exclusion words (case sensitive)",
 		uiwidget: UIWidgets.Auto,
 		defvalue: "Tool"
 	)]
@@ -51,11 +76,21 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	////////////////////////////
 	// Output category
 
-	[Attribute("0", UIWidgets.Auto, "If true, write to a file. If false, print to the console", "", null, "File Output")]
-	bool m_writeFile = false;
-	
+	// Dropdown to set the output mode
+	[Attribute(
+			category: "Output",
+			desc: "Output mode",
+			uiwidget: UIWidgets.ComboBox,
+			enums: ParamEnumArray.FromEnum(EQOutputMode),
+			defvalue: EQOutputMode.CONSOLE.ToString()
+	)]
+	EQOutputMode m_outputMode;
+		
 	[Attribute("entities.json", UIWidgets.Auto, "Output filename prefix", "", null, "File Output")]
 	string m_outputFilename = "entities.json";
+
+	[Attribute("0", UIWidgets.Auto, "Print using a custom formatter", "", null, "Output")]
+	bool m_customPrintFormat = false;
 
 	////////////////////////////
 	// Buttons
@@ -67,14 +102,14 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			return;
 		}
 		
-		PrintFormat("Query between %1 and %2 using flags EQueryEntitiesFlags.%3", m_queryBoundsMin, m_queryBoundsMax, EQueryEntitiesFlagsToString(m_queryFlags));		
-		bool queryResult = m_currentWorld.QueryEntitiesByAABB(m_queryBoundsMin, m_queryBoundsMax, this.addEntitiesCallback, this.filterResourceEntitiesCallback, m_queryFlags);
+		PrintFormat("Query between %1 and %2 using flags EQueryEntitiesFlags.%3", m_queryBoundsMin, m_queryBoundsMax, EQueryEntitiesFlagsToString(m_componentQueryFlags));		
+		bool queryResult = m_currentWorld.QueryEntitiesByAABB(m_queryBoundsMin, m_queryBoundsMax, this.addEntitiesCallback, this.filterEntitiesCallback, m_componentQueryFlags);
+		
 		if (queryResult) {
-			// Two main modes of operation
-			if (m_writeFile) {
+			if (m_outputMode == EQOutputMode.FILE) {
 				WriteJSONEntityCoordinates();
 			} else {
-				PrintEntityCoordinates(false); // True if you want to modify the printed line, see PrintEntityCoordinates()
+				PrintEntityCoordinates(m_customPrintFormat); // True if you want to modify the printed line, see PrintEntityCoordinates()
 			}			
 		} else {
 			Print("Query failed!");
@@ -119,8 +154,19 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		
 		return true;
 	}
+	
+	bool filterEntitiesCallback(IEntity e) {
+		if (m_componentSearchMode == EQComponentSearchMode.SUPPLIES) {
+			return filterResourceInventoryEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLES) {
+			return filterAmbientVehicleSpawnEntitiesCallback(e);
+		}
 		
-	bool filterResourceEntitiesCallback(IEntity e) {
+		return false;
+	}
+		
+	// How we identify the entities which implement in-game supplies
+	bool filterResourceInventoryEntitiesCallback(IEntity e) {
     	// Currently we only want to look for objects with resource + inventory components (the supply signposts)
 		if (e.FindComponent(SCR_ResourceComponent) && e.FindComponent(InventoryItemComponent)) {
 			string xobPath = e.GetVObject().GetResourceName();
@@ -139,6 +185,16 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		return false;
 	}
 	
+	// How we identify the entities which implement a vehicle spawn
+	bool filterAmbientVehicleSpawnEntitiesCallback(IEntity e) {
+    	// Currently we only want to look for objects with resource + inventory components (the supply signposts)
+		if (e.FindComponent(SCR_AmbientVehicleSpawnPointComponent)) {
+			return true;
+		}
+		
+		return false;
+	}
+	
 	// Add them all by default
 	bool addEntitiesCallback(IEntity e) {
 		m_entityResults.Insert(e);
@@ -147,20 +203,33 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	
 	// Output to a file. No safety is performed on the filename so be careful when typing!
 	void WriteJSONEntityCoordinates() {
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		WorldEditorAPI api = worldEditor.GetApi();
+
 		string filepath = string.Format("$profile:%1", m_outputFilename);
 		FileHandle textFileW = FileIO.OpenFile(filepath, FileMode.WRITE);
 		if (textFileW) {
 			textFileW.WriteLine("[");
 			foreach(IEntity foundEntity : m_entityResults) {
+				textFileW.WriteLine("{");
+				
 				vector position = foundEntity.GetOrigin();
-				string formattedLine = string.Format(" [%1, %2],", position[0], position[2]);
-				textFileW.WriteLine(formattedLine);
+				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
+				float relativeHeight = position[1] - worldHeight;
+
+				string formattedLocationLine = string.Format("\"locationXZ\": [%1, %2],", position[0], position[2]);
+				textFileW.WriteLine(formattedLocationLine);
+				
+				string formattedHeightLine = string.Format("\"height\": %1", relativeHeight);
+				textFileW.WriteLine(formattedHeightLine);
+
+				textFileW.Write("},");
 			}
 			textFileW.WriteLine("]");
 			textFileW.Close();
 			
 			int entityCount = m_entityResults.Count();
-			PrintFormat("Wrote %1 coordinates", entityCount);
+			PrintFormat("Wrote %1 coordinates to %2", entityCount, filepath);
 		} else {
 			PrintFormat("Failed to open file %1", filepath);
 		}
@@ -168,12 +237,22 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	
 	// Just print the results to the console for debugging / checking
 	void PrintEntityCoordinates(bool customFormat) {
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		WorldEditorAPI api = worldEditor.GetApi();
+
 		foreach(IEntity foundEntity : m_entityResults) {
 			if (customFormat) {
 				vector position = foundEntity.GetOrigin();
+				
+				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
+				float relativeHeight = position[1] - worldHeight;
+				
 				string name = foundEntity.GetName();
-				string formattedLine = string.Format("%1 => %2, %3,", name, position[0], position[2]);
-				Print(formattedLine);
+				EntityID id = foundEntity.GetID();
+				
+				Print("-------");
+				Print(foundEntity);
+				PrintFormat("HEIGHT: %1", relativeHeight);
 			} else {
 				Print(foundEntity);
 			}
@@ -211,5 +290,55 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		return "unknown";
 	}
 
+	private const int 		TRACE_LAYER_MASK = EPhysicsLayerDefs.Projectile;
+	private const float 	MEASURE_INTERVAL = 1.0;
+	private const float 	RAY_LENGTH = 3.0;
+	private ref array<ref Shape> m_aDbgShapes;
+
+	private void DoTraceLine()
+	{
+		
+		autoptr TraceParam param = new TraceParam;
+		//param.Exclude = this;
+		param.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
+		param.LayerMask = TRACE_LAYER_MASK;
+		//param.Start = m_vRCStart;
+		//param.End = m_vRCEnd;
+		
+		TraceResult(param);
+	}
 	
+	private void TraceResult(TraceParam param)
+	{
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		WorldEditorAPI api = worldEditor.GetApi();
+		BaseWorld world = api.GetWorld();
+
+		float hit = world.TraceMove(param, null);
+		
+		if (!param.TraceEnt)
+			return;
+
+		Print("_____");
+		//Print("| " + GetName() + " results" );
+		Print("|_ Entity: " + param.TraceEnt);
+		Print("|_ Collider: " + param.ColliderName);
+		//Print("|_ Material type: " + param.MaterialType);
+		Print(" ");
+		
+		//vector hitPos = m_vRCStart + vector.Forward * (hit * RAY_LENGTH);
+		//DBG_Sphere(hitPos, ARGBF(0.5, 1, 0, 0));
+	}
+	
+	private void DBG_Sphere(vector pos, int color)
+	{
+		vector matx[4];
+		Math3D.MatrixIdentity4(matx);
+		matx[3] = pos;
+		int shapeFlags = ShapeFlags.NOOUTLINE|ShapeFlags.NOZBUFFER|ShapeFlags.TRANSP;
+		Shape s = Shape.CreateSphere(color, shapeFlags, pos, 0.05);
+		s.SetMatrix(matx);
+		//m_aDbgShapes.Insert(s);
+	}
+
 }
