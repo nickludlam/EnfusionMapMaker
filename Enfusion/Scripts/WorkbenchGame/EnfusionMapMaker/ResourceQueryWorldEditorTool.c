@@ -210,19 +210,31 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		if (textFileW) {
 			textFileW.WriteLine("[");
 			foreach(IEntity foundEntity : m_entityResults) {
-				textFileW.WriteLine("{");
+				textFileW.WriteLine("  {");
 				
+				// Standard location
 				vector position = foundEntity.GetOrigin();
+				string formattedLocationLine = string.Format("    \"locationXZ\": [%1, %2],", position[0], position[2]);
+				textFileW.WriteLine(formattedLocationLine);
+
+				// Height				
 				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
 				float relativeHeight = position[1] - worldHeight;
 
-				string formattedLocationLine = string.Format("\"locationXZ\": [%1, %2],", position[0], position[2]);
-				textFileW.WriteLine(formattedLocationLine);
-				
-				string formattedHeightLine = string.Format("\"height\": %1", relativeHeight);
+				string formattedHeightLine = string.Format("    \"height\": %1", relativeHeight);
 				textFileW.WriteLine(formattedHeightLine);
-
-				textFileW.Write("},");
+				
+				// Resource values
+				bool entityResourcesInfinite;
+				float entityTotalResources;
+				GetResourceAttributes(foundEntity, entityResourcesInfinite, entityTotalResources);
+				
+				float resourcesAvailable = entityTotalResources;
+				if (entityResourcesInfinite) { resourcesAvailable = -1; }
+				string formattedResourcesAvailableLine = string.Format("    \"resourcesAvailable\": %1", resourcesAvailable);
+				textFileW.WriteLine(formattedResourcesAvailableLine);
+				
+				textFileW.Write("  },");
 			}
 			textFileW.WriteLine("]");
 			textFileW.Close();
@@ -242,16 +254,23 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		foreach(IEntity foundEntity : m_entityResults) {
 			if (customFormat) {
 				vector position = foundEntity.GetOrigin();
-				
 				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
 				float relativeHeight = position[1] - worldHeight;
-				
-				string name = foundEntity.GetName();
-				EntityID id = foundEntity.GetID();
+
+								
+				bool entityResourcesInfinite;
+				float entityTotalResources;
+				GetResourceAttributes(foundEntity, entityResourcesInfinite, entityTotalResources);
+
 				
 				Print("-------");
 				Print(foundEntity);
-				PrintFormat("HEIGHT: %1", relativeHeight);
+				PrintFormat("  HEIGHT: %1", relativeHeight);
+				if (entityResourcesInfinite) {
+					PrintFormat("  RESOURCES: INFINITE");
+				} else {
+					PrintFormat("  RESOURCES: %1", entityTotalResources);
+				}
 			} else {
 				Print(foundEntity);
 			}
@@ -260,6 +279,92 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		int entityCount = m_entityResults.Count();
 		PrintFormat("Total entity count: %1", entityCount);
 	}
+	
+	void GetResourceAttributes(IEntity resourceEntity, out bool infiniteResources, out float totalResourceValue) {
+		float totalChildResources = CountResourcesInChildren(resourceEntity);
+		PrintFormat("Direct resources: %1", totalChildResources);
+		
+		
+		IEntity parent = resourceEntity.GetParent();
+		if (!parent) {
+			Print("No parent!", LogLevel.ERROR);
+			return;
+		}
+		
+		
+		bool isInfinite;
+		if (FindInfiniteContainer(parent, isInfinite)) {
+			float totalParentResources = CountResourcesInChildren(parent);
+			PrintFormat("  Found %1 supplies on parent!", totalParentResources);
+			Print("  Found on PARENT");
+
+			infiniteResources = isInfinite;
+			totalResourceValue = totalParentResources;
+			return;
+		}
+		
+		IEntity resourceSibling = parent.GetChildren();
+		while (resourceSibling)
+		{
+			if (FindInfiniteContainer(resourceSibling, isInfinite)) {
+				
+				float totalResources = CountResourcesInChildren(resourceSibling);
+				PrintFormat("  Found %1 supplies on sibling!", totalResources);
+				Print("  Found on SIBLING");
+
+				infiniteResources = isInfinite;
+				totalResourceValue = totalResources;
+
+				return;
+			}
+			
+			resourceSibling = resourceSibling.GetSibling();
+		}
+	}
+	
+	bool FindInfiniteContainer(IEntity targetEntity, out bool containerIsInfinite) {
+		SCR_ResourceComponent targetResourceComp = SCR_ResourceComponent.Cast(targetEntity.FindComponent(SCR_ResourceComponent));
+		SCR_SlotCompositionComponent targetSlotCompComp = SCR_SlotCompositionComponent.Cast(targetEntity.FindComponent(SCR_SlotCompositionComponent));
+		if (targetResourceComp && targetSlotCompComp) {
+			PrintFormat("  Container: %1", targetEntity);
+			SCR_ResourceContainer targetContainer;
+			if (targetResourceComp.GetContainer(EResourceType.SUPPLIES, targetContainer)) {
+				bool isInfinite = targetContainer.IsResourceGainEnabled();
+				PrintFormat("    isInfinite %1", isInfinite);
+				containerIsInfinite = isInfinite;
+			} else {
+				Print("Didn't find our virtual container!", LogLevel.ERROR);
+			}
+			return true;
+		}
+		
+		return false;
+	}
+	
+	float CountResourcesInChildren(IEntity parent) {
+		float totalResourceCount = 0;
+		IEntity resourceSibling = parent.GetChildren();
+		while (resourceSibling)
+		{
+			SCR_ResourceComponent targetResourceComp = SCR_ResourceComponent.Cast(resourceSibling.FindComponent(SCR_ResourceComponent));
+			if (targetResourceComp) {
+				SCR_ResourceContainer targetContainer;
+				if (targetResourceComp.GetContainer(EResourceType.SUPPLIES, targetContainer)) {
+					float resourceValue = targetContainer.GetResourceValue();
+					float maxResourceValue = targetContainer.GetMaxResourceValue();
+					PrintFormat("    adding resourceValue %1 / %2 from %3", resourceValue, maxResourceValue, targetContainer);
+					totalResourceCount += resourceValue;
+				} else {
+					Print("Didn't find our container!", LogLevel.ERROR);
+				}
+			}
+
+			resourceSibling = resourceSibling.GetSibling();
+		}
+		
+		return totalResourceCount;
+	}
+	
 	
 	/////////////////////////////
 	// Standard tool hooks
