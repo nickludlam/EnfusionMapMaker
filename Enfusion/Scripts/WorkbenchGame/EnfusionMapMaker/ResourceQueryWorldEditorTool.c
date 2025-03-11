@@ -221,7 +221,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
 				float relativeHeight = position[1] - worldHeight;
 
-				string formattedHeightLine = string.Format("    \"height\": %1", relativeHeight);
+				string formattedHeightLine = string.Format("    \"height\": %1,", relativeHeight);
 				textFileW.WriteLine(formattedHeightLine);
 				
 				// Resource values
