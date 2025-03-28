@@ -1,6 +1,9 @@
 enum EQComponentSearchMode {
 	SUPPLIES,
-	VEHICLES
+	VEHICLES,
+	VEHICLEREPAIR,
+	REFUEL,
+	POTENTIAL_MOB
 }
 
 enum EQOutputMode {
@@ -15,25 +18,25 @@ enum EQOutputMode {
 	awesomeFontCode: 0xf6e2)]
 class EntityQueryWorldEditorTool: WorldEditorTool
 {	
-    // Name: Entity Query Tool
+	// Name: Entity Query Tool
 	
 	////////////////////////////
 	// State vars
 
-    World m_currentWorld;
-    ref array<IEntity> m_entityResults = null;
-    ref array<string> m_excludeStringArray = null;
-    
-    ////////////////////////////
-    // Query category
+	World m_currentWorld;
+	ref array<IEntity> m_entityResults = null;
+	ref array<string> m_excludeStringArray = null;
+	
+	////////////////////////////
+	// Query category
 
-    [Attribute(
-        category: "Query",
-        desc: "Bounds Min",
-        uiwidget: UIWidgets.Coords,
-        defvalue: "0 0 0"
-    )]
-    vector m_queryBoundsMin = Vector(0, 0, 0);
+	[Attribute(
+		category: "Query",
+		desc: "Bounds Min",
+		uiwidget: UIWidgets.Coords,
+		defvalue: "0 0 0"
+	)]
+	vector m_queryBoundsMin = Vector(0, 0, 0);
 
 	[Attribute(
 		category: "Query",
@@ -71,9 +74,18 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		defvalue: "Tool"
 	)]
 	string m_exclusionTerms;
+	
+	[Attribute(
+		category: "Query",
+		desc: "Merge radius",
+		uiwidget: UIWidgets.Auto,
+		defvalue: "1"
+	)]
+	float m_mergeRadius = 1.0;
 
-    ////////////////////////////
-    // Output category
+
+	////////////////////////////
+	// Output category
 
 	// Dropdown to set the output mode
 	[Attribute(
@@ -94,7 +106,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	////////////////////////////
 	// Buttons
 
-    [ButtonAttribute("Run Query")]
+	[ButtonAttribute("Run Query")]
 	void RunQuery() {
 		if (!BeforeQueryCheck()) {
 			Print("Query not possible");
@@ -138,16 +150,16 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		}
 		
 		// Gather our individual exclusion strings from the comma separated list
-        m_excludeStringArray = new array<string>;
-        array<string> tmpStringSplit = new array<string>;
-        if (m_exclusionTerms.Length() > 0) {
-            m_exclusionTerms.Split(",", tmpStringSplit, true);
+		m_excludeStringArray = new array<string>;
+		array<string> tmpStringSplit = new array<string>;
+		if (m_exclusionTerms.Length() > 0) {
+			m_exclusionTerms.Split(",", tmpStringSplit, true);
 
-            // trim them before adding
-            foreach(string s: tmpStringSplit) {
-                s.TrimInPlace();
-                PrintFormat("Adding exclusion string \"%1\"", s);
-                m_excludeStringArray.Insert(s);
+			// trim them before adding
+			foreach(string s: tmpStringSplit) {
+				s.TrimInPlace();
+				PrintFormat("Adding exclusion string \"%1\"", s);
+				m_excludeStringArray.Insert(s);
 			}
 		}
 		
@@ -159,6 +171,12 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			return filterResourceInventoryEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLES) {
 			return filterAmbientVehicleSpawnEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLEREPAIR) {
+			return filterVehicleRepairEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.REFUEL) {
+			return filterRefuelEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.POTENTIAL_MOB) {
+			return filterMOBEntitiesCallback(e);
 		}
 		
 		return false;
@@ -166,10 +184,10 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		
 	// How we identify the entities which implement in-game supplies
 	bool filterResourceInventoryEntitiesCallback(IEntity e) {
-    	// Currently we only want to look for objects with resource + inventory components (the supply signposts)
+		// Currently we only want to look for objects with resource + inventory components (the supply signposts)
 		if (e.FindComponent(SCR_ResourceComponent) && e.FindComponent(InventoryItemComponent)) {
 			string xobPath = e.GetVObject().GetResourceName();
-            // These also include tool racks, so we want to exclude specific words found in the path
+			// These also include tool racks, so we want to exclude specific words found in the path
 			foreach(string exclusionString : m_excludeStringArray) {
 				if (xobPath.Contains(exclusionString)) {
 					PrintFormat("Excluding %1 as it contains \"%2\"", xobPath, exclusionString);
@@ -186,9 +204,36 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	
 	// How we identify the entities which implement a vehicle spawn
 	bool filterAmbientVehicleSpawnEntitiesCallback(IEntity e) {
-    	// Currently we only want to look for objects with resource + inventory components (the supply signposts)
 		if (e.FindComponent(SCR_AmbientVehicleSpawnPointComponent)) {
 			return true;
+		}
+		
+		return false;
+	}
+	
+	bool filterVehicleRepairEntitiesCallback(IEntity e) {
+		if (e.FindComponent(SCR_RepairSupportStationComponent)) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	bool filterRefuelEntitiesCallback(IEntity e) {
+		if (e.FindComponent(SCR_FuelSupportStationComponent) || e.FindComponent(SCR_FuelManagerComponent)) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	
+	bool filterMOBEntitiesCallback(IEntity e) {
+		if (e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));
+			if (base.CanBeHQ() && base.GetType() == SCR_ECampaignBaseType.BASE) {
+				return true;
+			}
 		}
 		
 		return false;
@@ -224,15 +269,9 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 				string formattedHeightLine = string.Format("    \"height\": %1,", relativeHeight);
 				textFileW.WriteLine(formattedHeightLine);
 				
-				// Resource values
-				bool entityResourcesInfinite;
-				float entityTotalResources;
-				GetResourceAttributes(foundEntity, entityResourcesInfinite, entityTotalResources);
-				
-				float resourcesAvailable = entityTotalResources;
-				if (entityResourcesInfinite) { resourcesAvailable = -1; }
-				string formattedResourcesAvailableLine = string.Format("    \"resourcesAvailable\": %1", resourcesAvailable);
-				textFileW.WriteLine(formattedResourcesAvailableLine);
+				if (m_componentSearchMode == EQComponentSearchMode.SUPPLIES) {
+					WriteSupplyCacheData(foundEntity, textFileW);
+				}
 				
 				textFileW.Write("  },");
 			}
@@ -244,6 +283,18 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		} else {
 			PrintFormat("Failed to open file %1", filepath);
 		}
+	}
+	
+	void WriteSupplyCacheData(IEntity e, FileHandle fh) {
+		// Resource values
+		bool entityResourcesInfinite;
+		float entityTotalResources;
+		GetResourceAttributes(e, entityResourcesInfinite, entityTotalResources);
+		
+		float resourcesAvailable = entityTotalResources;
+		if (entityResourcesInfinite) { resourcesAvailable = -1; }
+		string formattedResourcesAvailableLine = string.Format("    \"resourcesAvailable\": %1", resourcesAvailable);
+		fh.WriteLine(formattedResourcesAvailableLine);
 	}
 	
 	// Just print the results to the console for debugging / checking
@@ -377,75 +428,20 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	////////////////////////////
 	// Helper functions
 
-    // This will convert the enum value to a string
-    string EQueryEntitiesFlagsToString(EQueryEntitiesFlags f)
-    {
-        typename t = EQueryEntitiesFlags;
+	// This will convert the enum value to a string
+	string EQueryEntitiesFlagsToString(EQueryEntitiesFlags f)
+	{
+		typename t = EQueryEntitiesFlags;
 
-        int tVarCount = t.GetVariableCount();
-        for (int i = 0; i < tVarCount; i++) {
-            EQueryEntitiesFlags value;
-            t.GetVariableValue(null, i, value);
-            if (value && value == f) {
-                return t.GetVariableName(i);
-            }
-        }
+		int tVarCount = t.GetVariableCount();
+		for (int i = 0; i < tVarCount; i++) {
+			EQueryEntitiesFlags value;
+			t.GetVariableValue(null, i, value);
+			if (value && value == f) {
+				return t.GetVariableName(i);
+			}
+		}
 
 		return "unknown";
 	}
-
-
-    // Some dummy unused code to prep for raycasts to evaluate inside vs outside supplies
-
-	private const int 		TRACE_LAYER_MASK = EPhysicsLayerDefs.Projectile;
-	private const float 	MEASURE_INTERVAL = 1.0;
-	private const float 	RAY_LENGTH = 3.0;
-	private ref array<ref Shape> m_aDbgShapes;
-
-	private void DoTraceLine()
-	{
-		
-		autoptr TraceParam param = new TraceParam;
-		//param.Exclude = this;
-		param.Flags = TraceFlags.ENTS | TraceFlags.WORLD;
-		param.LayerMask = TRACE_LAYER_MASK;
-		//param.Start = m_vRCStart;
-		//param.End = m_vRCEnd;
-		
-		TraceResult(param);
-	}
-	
-	private void TraceResult(TraceParam param)
-	{
-		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
-		WorldEditorAPI api = worldEditor.GetApi();
-		BaseWorld world = api.GetWorld();
-
-		float hit = world.TraceMove(param, null);
-		
-		if (!param.TraceEnt)
-			return;
-
-		Print("_____");
-		//Print("| " + GetName() + " results" );
-		Print("|_ Entity: " + param.TraceEnt);
-		Print("|_ Collider: " + param.ColliderName);
-		//Print("|_ Material type: " + param.MaterialType);
-		Print(" ");
-		
-		//vector hitPos = m_vRCStart + vector.Forward * (hit * RAY_LENGTH);
-		//DBG_Sphere(hitPos, ARGBF(0.5, 1, 0, 0));
-	}
-	
-	private void DBG_Sphere(vector pos, int color)
-	{
-		vector matx[4];
-		Math3D.MatrixIdentity4(matx);
-		matx[3] = pos;
-		int shapeFlags = ShapeFlags.NOOUTLINE|ShapeFlags.NOZBUFFER|ShapeFlags.TRANSP;
-		Shape s = Shape.CreateSphere(color, shapeFlags, pos, 0.05);
-		s.SetMatrix(matx);
-		//m_aDbgShapes.Insert(s);
-	}
-
 }
