@@ -33,20 +33,23 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 	// because you cannot access the button if the editor camera is full screen!
 
 	
-	[Attribute("200 0 200", UIWidgets.Coords, "Camera start", "", null, "Camera Movement")]
+	[Attribute("200 0 200", UIWidgets.Coords, "Camera start", "", null, "Camera")]
 	vector m_StartCoords;
 	
-	[Attribute("12800 0 12800", UIWidgets.Coords, "Camera end", "", null, "Camera Movement")]
+	[Attribute("12800 0 12800", UIWidgets.Coords, "Camera end", "", null, "Camera")]
 	vector m_EndCoords;
 	
-	[Attribute("950", UIWidgets.Auto, "Camera height", "", null, "Camera Movement")]
+	[Attribute("950", UIWidgets.Auto, "Camera height", "", null, "Camera")]
 	int m_CameraHeight;
 	
-	[Attribute("0", UIWidgets.CheckBox, "Camera height is absolute, not relative to terrain height", "", null, "Camera Movement")]
+	[Attribute("0", UIWidgets.CheckBox, "Camera height is absolute, not relative to terrain height", "", null, "Camera")]
 	bool m_AbsoluteCameraHeight;
 
-	[Attribute("100", UIWidgets.Auto, "Camera step size", "", null, "Camera Movement")]
+	[Attribute("100", UIWidgets.Auto, "Camera step size", "", null, "Camera")]
 	int m_StepSize;
+
+	[Attribute("15", UIWidgets.Auto, "Camera FOV", "", null, "Camera")]
+	float m_fieldOfView;
 
 	[Attribute("700", UIWidgets.Auto, "Sleep after incremental camera movement (ms)", "", null, "Timing")]
 	float m_MoveSleep;
@@ -66,17 +69,22 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 	[Attribute("_tile.png", UIWidgets.Auto, "Tile filename suffix (must match the python code)", "", null, "Advanced")]
 	string m_tileFilenameSuffix;
 
+	[Attribute("0.025", UIWidgets.Auto, "Sleep after incremental camera movement (ms)", "", null, "Advanced")]
+	float m_hdrBrightness;
+
 	// Loop state
 	private bool m_InCaptureLoop;
 	private bool m_CancelCurrentLoop;
 	
 	[ButtonAttribute("Move to start")]
 	void PositionCameraStart() {
+		ApplyCameraSettings();
 		MoveCamera(m_StartCoords[0], m_StartCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
 	}
 	
 	[ButtonAttribute("Move to end")]
 	void PositionCameraEnd() {
+		ApplyCameraSettings();
 		MoveCamera(m_EndCoords[0], m_EndCoords[2], m_CameraHeight, m_AbsoluteCameraHeight);
 	}
 
@@ -92,6 +100,8 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 			Print("Halting capture loop ...");
 		} else {
 			Print("No capture loop running");
+			// Reset the camera in any case
+			ResetCustomHDRBrightness();
 		}
 	}
 	
@@ -146,7 +156,10 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 		bool cameraDiscontinuousMovement = false;
 
 		bool done = false;
-				
+		
+		// Set up camera parameters
+		ApplyCameraSettings();
+
 		for (int x = 0; x < stepCountX; x++) {
 			float mapPositionX = initialX + (x * stepSize);
 			int intMapPositionX = mapPositionX;
@@ -217,7 +230,29 @@ class AutoCameraScreenshotWorldEditorTool: WorldEditorTool
 		// Move the camera back to the initial position
 		MoveCamera(initialX, initialZ, camHeight, m_AbsoluteCameraHeight);
 
+		// Reinstate auto exposure
+		ResetCustomHDRBrightness();
+
 		m_InCaptureLoop = false;
+	}
+	
+	void ApplyCameraSettings()
+	{
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		WorldEditorAPI api = worldEditor.GetApi();
+		BaseWorld baseWorld = api.GetWorld();
+		int currentCameraId = baseWorld.GetCurrentCameraId();
+		baseWorld.SetCameraHDRBrightness(currentCameraId, m_hdrBrightness);
+		baseWorld.SetCameraVerticalFOV(currentCameraId, m_fieldOfView);
+	}
+	
+	void ResetCustomHDRBrightness()
+	{
+		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+		WorldEditorAPI api = worldEditor.GetApi();
+		BaseWorld baseWorld = api.GetWorld();
+		int currentCameraId = baseWorld.GetCurrentCameraId();
+		baseWorld.SetCameraHDRBrightness(currentCameraId, -1);
 	}
 	
 	void MoveCamera(float xPos, float zPos, float camHeight, bool camHeightAbsolute)
