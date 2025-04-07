@@ -86,7 +86,7 @@ class MapTileContainer():
             raise Exception("No LOD tiles found")
         return cls(lod_tiles, directory)
     
-    def __init__(self, tile_dict: dict[int, list[MapTile]], basedir: str, background_color: str = "#2B3D49"):
+    def __init__(self, tile_dict: dict[int, list[MapTile]], basedir: str, background_color: str = "#1f333d"):
         self.map_tiles = tile_dict
         self.basedir = basedir
         self._tile_size = self.find_tile_size()
