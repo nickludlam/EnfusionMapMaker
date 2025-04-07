@@ -3,7 +3,8 @@ enum EQComponentSearchMode {
 	VEHICLES,
 	VEHICLEREPAIR,
 	REFUEL,
-	POTENTIAL_MOB
+	POTENTIAL_MOB,
+	CAPTURE_POINT,
 }
 
 enum EQOutputMode {
@@ -177,6 +178,8 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			return filterRefuelEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.POTENTIAL_MOB) {
 			return filterMOBEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.CAPTURE_POINT) {
+			return filterCapturePointEntitiesCallback(e);
 		}
 		
 		return false;
@@ -239,6 +242,17 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		return false;
 	}
 	
+	bool filterCapturePointEntitiesCallback(IEntity e) {
+		if (e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
+			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));
+			if (!base.CanBeHQ() && base.GetType() == SCR_ECampaignBaseType.BASE) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
 	// Add them all by default
 	bool addEntitiesCallback(IEntity e) {
 		m_entityResults.Insert(e);
@@ -256,6 +270,10 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			textFileW.WriteLine("[");
 			foreach(IEntity foundEntity : m_entityResults) {
 				textFileW.WriteLine("  {");
+				// Name
+				string name = foundEntity.GetName();
+				string formattedNameLine = string.Format("    \"name\": \"%1\",", name);
+				textFileW.WriteLine(formattedNameLine);
 				
 				// Standard location
 				vector position = foundEntity.GetOrigin();
