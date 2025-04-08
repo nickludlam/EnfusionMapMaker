@@ -85,9 +85,19 @@ You simply point this at the directory where your LOD 0 images have been created
 
 Lastly, there is a bash script named `compress_tiles.sh` which can use [ImageMagick](https://imagemagick.org) to further compress the tiles if required. Edit the script to configure the desired directory paths.
 
+## Example runthrough
+
+The paths will need altering, but the process will look like this. `compress_tiles.sh` will look for a subfolder called `LODS/` and create a new folder called `Compressed_LODS/` containing the final images.
+
+```
+python crop_screenshots.py some/folder/path /mnt/e/everon_map/LODS
+python create_zoom_levels.py /mnt/e/everon_map/LODS
+./compress_tiles.sh /mnt/e/everon_map/
+```
+
 ## Extracting the location information
 
-The guide on using the Resource Query Tool is not yet finished.
+Add the **Enfusion** directory as a mod, and then look for the newly added Ghost icon in the toolbar. This will give you access to the tool and its various options.
 
 # License
 
