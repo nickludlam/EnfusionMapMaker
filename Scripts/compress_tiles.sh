@@ -29,10 +29,11 @@ find "$SOURCE_DIR" -type f -name "*.jpg" | while read -r file; do
     # Process the image with ImageMagick
     # Options:
     # -strip: Remove metadata
-    # -quality 85: Compress with 85% quality (adjust as needed)
+    # -gamma 0.70 -level -5%,130%: Adjust gamma and levels to approximate old auto-exposure correction
+    # -quality 75: Compress with 75% quality (adjust as needed)
     # -colorspace sRGB: Ensure consistent color space
     mogrify -strip \
-            -gamma 0.7 \
+            -gamma 0.70 -level -5%,130% \
             -quality 75 \
             -sampling-factor 4:2:0 \
             -colorspace sRGB \
