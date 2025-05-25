@@ -110,7 +110,8 @@ class Screenshot():
 class ScreenshotProcessor():
     screenshots: list[Screenshot]
     mapped_screenshots: dict[str, Screenshot]
-
+    _tile_step_size: int = -1  # This will be set after loading all screenshots
+    
     def __init__(self, screenshots: list[Screenshot]|None = None):
         if screenshots is None:
             screenshots = []
@@ -188,13 +189,24 @@ class ScreenshotProcessor():
 
     @property
     def tile_step_size(self):
-        # take the first two tiles, and calculate the difference in x and z
-        tile_0 = self.screenshots[0]
-        tile_1 = self.screenshots[1]
-        x_diff = abs(tile_0.xCoordWS - tile_1.xCoordWS)
-        z_diff = abs(tile_0.zCoordWS - tile_1.zCoordWS)
-        # return which ever is larger
-        return max(x_diff, z_diff)
+        # Use a different method to calculate the tile step size
+        if len(self.screenshots) == 0:
+            raise RuntimeError("No screenshots available to calculate tile step size")
+        if self._tile_step_size != -1:
+            return self._tile_step_size
+        
+        # Calculate the step size based on looking at the minimum diffference between the x and z coordinates of all screenshots
+        x_coords = [screenshot.xCoordWS for screenshot in self.screenshots if screenshot.xCoordWS is not None]
+        z_coords = [screenshot.zCoordWS for screenshot in self.screenshots if screenshot.zCoordWS is not None]
+        if len(x_coords) == 0 or len(z_coords) == 0:
+            raise RuntimeError("No valid x or z coordinates found in screenshots")
+        x_diff = min([abs(x_coords[i] - x_coords[i+1]) for i in range(len(x_coords)-1)])
+        z_diff = min([abs(z_coords[i] - z_coords[i+1]) for i in range(len(z_coords)-1)])
+        # Check they're not different
+        if x_diff != z_diff:
+            print(f"WARNING: x_diff ({x_diff}) and z_diff ({z_diff}) are not equal, using the minimum of both")
+        self._tile_step_size = min(x_diff, z_diff)
+        return self._tile_step_size        
 
     def count(self):
         return len(self.screenshots)
