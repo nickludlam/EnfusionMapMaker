@@ -51,7 +51,7 @@ The output directory is configured as the `$profile` directory of Workbench, whi
 
 Now stop the process by either hitting the escape key, or **Stop capture** button, and delete these test screenshots, as there's one more step to do before you can use them.
 
-12. Immediately after starting the process, hit F11 to ensure the camera is full screen. This is currently the only effective way to ensure the camera size is consistent for each capture session. All the defaults listed here are configured for a 1440p monitor, so if you have a different resolution, you may need to adjust the camera settings.
+12. **IMPORTANT:** Immediately after starting the process, hit F11 to ensure the camera is full screen. This is currently the only effective way to ensure the camera size is consistent for each capture session. All the defaults listed here are configured for a 1440p monitor, so if you have a different resolution, you may need to adjust the camera settings.
 
 Now let the process run until it completes, and you have a full set of screenshots.
 
@@ -109,6 +109,8 @@ cd \Path\To\EnfusionMapMaker
 py Scripts\crop_screenshots.py "C:\Users\<YOUR USERNAME>\Documents\My Games\ArmaReforgerWorkbench\profile\<YOUR MAP NAME>" Web\<YOUR MAP NAME>\LODS
 py Scripts\create_zoom_levels.py Web\<YOUR MAP NAME>\LODS
 ```
+
+It's recommended to capture a small area of the map first. For example, coordinates `1000,1000` to `2000,2000` and then run the scripts on that area to ensure everything is working correctly. Once you have a good set of tiles, you can then run the scripts on the full map.
 
 ## Extracting the location information
 

@@ -16,9 +16,14 @@ DELETE_ORIGINALS = True # Delete the original screenshots after cropping the til
 INTERMEDIATE_TILE_FILENAME_SUFFIX = "tile" # only change this if you have also changed the Enfusion Workbench settings
 FINAL_TILE_FILENAME = "tile"
 FINAL_TILE_IMAGE_TYPE = "jpg"
+MINIMUM_SCREENSHOT_WIDTH = 1920 # pixels - Minimum width of the screenshot to be considered a full screenshot
 
+class ScreenshotTileType(Enum):
+    RAW_SCREENSHOT = "raw_screenshot"
+    CROPPED_TILE = "cropped_tile"
 
 class Screenshot():
+    type: ScreenshotTileType
     xCoordWS: int
     zCoordWS: int
     # This has two images, the full resolution raw screenshot, and the cropped tile
@@ -28,7 +33,8 @@ class Screenshot():
     _screenshot_image: Image
     _tile_image: Image
 
-    def __init__(self, xCoordWS: int, zCoordWS: int, screenshot_filepath: str|None = None, tile_filepath: str|None = None):
+    def __init__(self, xCoordWS: int, zCoordWS: int, type: ScreenshotTileType, screenshot_filepath: str|None = None, tile_filepath: str|None = None):
+        self.type = type
         self.xCoordWS = xCoordWS
         self.zCoordWS = zCoordWS
         self._screenshot_filepath = screenshot_filepath
@@ -92,6 +98,10 @@ class Screenshot():
     def create_cropped_tile(self):
         # crop the center of the image to crop_size x crop_size
         width, height = self.screenshot_image.size
+        if width < MINIMUM_SCREENSHOT_WIDTH :
+            print(f"ERROR: Screenshot {self.screenshot_filepath} is too small to crop, it is only {width}x{height} pixels\nDid you forget to press F11 after starting the screenshot capture process?")
+            sys.exit(1)
+
         left = (width - TILE_CROP_SIZE) / 2
         top = (height - TILE_CROP_SIZE) / 2
         right = (width + TILE_CROP_SIZE) / 2
@@ -99,6 +109,7 @@ class Screenshot():
         cropped_image = self.screenshot_image.crop((left, top, right, bottom))
         # set the jpeg quality to 95
         cropped_image.save(self.tile_filepath, quality=95)
+        self.unload()  # Unload the images to free memory
 
     def tile_exists(self):
         return os.path.exists(self.tile_filepath)
@@ -143,11 +154,11 @@ class ScreenshotProcessor():
             if filename_elements[-1] == INTERMEDIATE_TILE_FILENAME_SUFFIX:
                 x = int(filename_elements[-3])
                 z = int(filename_elements[-2])
-                screenshot_processor.add_screenshot(Screenshot(x, z, tile_filepath=filepath))
+                screenshot_processor.add_screenshot(Screenshot(x, z, ScreenshotTileType.CROPPED_TILE, tile_filepath=filepath))
             else:
                 x = int(filename_elements[-2])
                 z = int(filename_elements[-1])
-                screenshot_processor.add_screenshot(Screenshot(x, z, screenshot_filepath=filepath))
+                screenshot_processor.add_screenshot(Screenshot(x, z, ScreenshotTileType.RAW_SCREENSHOT, screenshot_filepath=filepath))
 
         return screenshot_processor
         
@@ -201,10 +212,11 @@ class ScreenshotProcessor():
     def crop_screenshots(self):
         for screenshot in self.screenshots:
             if screenshot.tile_exists() and SKIP_EXISTING_TILES:
-                print(f"Skipping existing {screenshot.tile_filepath}")
+                print(f"Skipping cropped tile {screenshot.tile_filepath}")
             else:
                 print(f"Creating cropped screenshot for coordinate {screenshot.xCoordWS}, {screenshot.zCoordWS}")
                 screenshot.create_cropped_tile()
+                screenshot.unload()
 
             if DELETE_ORIGINALS and screenshot.screenshot_filepath is not None:
                 os.remove(screenshot.screenshot_filepath)
