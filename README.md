@@ -89,10 +89,25 @@ Lastly, there is a bash script named `compress_tiles.sh` which can use [ImageMag
 
 The paths will need altering, but the process will look like this. `compress_tiles.sh` will look for a subfolder called `LODS/` and create a new folder called `Compressed_LODS/` containing the final images.
 
+#### Linux
 ```
-python crop_screenshots.py some/folder/path /mnt/e/everon_map/LODS
-python create_zoom_levels.py /mnt/e/everon_map/LODS
-./compress_tiles.sh /mnt/e/everon_map/
+pip install Pillow
+cd /path/to/EnfusionMapMaker
+python Scripts/crop_screenshots.py some/folder/path Web/<mapname>/LODS
+python Scripts/create_zoom_levels.py Web/<mapname>/LODS
+# Optional, linux-only step to compress the tiles
+./compress_tiles.sh Web/<mapname>/
+```
+
+#### Windows
+
+Grab the latest version of Python from [python.org](https://www.python.org/downloads/), and then run the following commands in a command prompt.
+
+```
+py -m pip install Pillow
+cd \Path\To\EnfusionMapMaker
+py Scripts\crop_screenshots.py "C:\Users\<YOUR USERNAME>\Documents\My Games\ArmaReforgerWorkbench\profile\<YOUR MAP NAME>" Web\<YOUR MAP NAME>\LODS
+py Scripts\create_zoom_levels.py Web\<YOUR MAP NAME>\LODS
 ```
 
 ## Extracting the location information

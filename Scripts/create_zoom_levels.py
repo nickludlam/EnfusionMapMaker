@@ -13,7 +13,8 @@ class MapTile():
 
     @staticmethod
     def get_glob():
-        return "*/*/*/tile.jpg"
+        return os.path.join("*", "*", "*", "tile.jpg")
+    
 
     def __init__(self, xCoord: int, zCoord: int, lod: int, basedir: str):
         self.xCoord = xCoord
@@ -73,7 +74,7 @@ class MapTileContainer():
         lod_tiles: dict[int, list[MapTile]] = {}
         for file in matching_files:
             # Files are in the structure {zoom_level}/{x}/{z}/tile.jpg
-            path_elements = file.split("/")
+            path_elements = file.split(os.sep)
             lod_level = int(path_elements[-4])
             x = int(path_elements[-3])
             z = int(path_elements[-2])
@@ -205,4 +206,4 @@ if __name__ == "__main__":
     print(f"Processing screenshots in {args.input_dir}")
     map_tile_container = MapTileContainer.from_directory(args.input_dir)
     map_tile_container.make_remaining_lod_levels(args.force_overwrite)
-    print("Done!")
+    print("Done creating zoom levels.")

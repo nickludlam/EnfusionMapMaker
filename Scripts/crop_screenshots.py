@@ -4,8 +4,6 @@ import os
 import sys
 import glob
 from PIL import Image, ImageOps, ImageFilter
-import numpy as np
-from scipy import fftpack
 
 # Configuration - Make sure this matches the Enfusion Workbench tool settings
 TILE_CROP_SIZE = 550 # pixels - Set this initially to be too large for perfect tiling
@@ -13,7 +11,7 @@ TILE_OVERLAP = -7  # pixels - Then adjust this value to get the perfect tiling t
 
 # Optional configuration
 SKIP_EXISTING_TILES = True # Skip creating tiles that already exist
-DELETE_ORIGINALS = False # Delete the original screenshots after cropping the tiles to save disk space
+DELETE_ORIGINALS = True # Delete the original screenshots after cropping the tiles to save disk space
 
 INTERMEDIATE_TILE_FILENAME_SUFFIX = "tile" # only change this if you have also changed the Enfusion Workbench settings
 FINAL_TILE_FILENAME = "tile"
@@ -46,6 +44,7 @@ class Screenshot():
         if self._screenshot_image is None:
             if os.path.exists(self.screenshot_filepath):            
                 self._screenshot_image = Image.open(self.screenshot_filepath)
+                
             else:
                 raise RuntimeError(f"Screenshot image not found at {self.screenshot_filepath}")
         return self._screenshot_image
@@ -90,7 +89,7 @@ class Screenshot():
     def __hash__(self) -> int:
         return hash(self.coordinate_string)
     
-    def create_tile(self):
+    def create_cropped_tile(self):
         # crop the center of the image to crop_size x crop_size
         width, height = self.screenshot_image.size
         left = (width - TILE_CROP_SIZE) / 2
@@ -110,8 +109,7 @@ class Screenshot():
 class ScreenshotProcessor():
     screenshots: list[Screenshot]
     mapped_screenshots: dict[str, Screenshot]
-    _tile_step_size: int = -1  # This will be set after loading all screenshots
-    
+
     def __init__(self, screenshots: list[Screenshot]|None = None):
         if screenshots is None:
             screenshots = []
@@ -129,7 +127,7 @@ class ScreenshotProcessor():
     def from_directory(cls, directory: str):
         screenshot_processor = ScreenshotProcessor()
         
-        glob_match = os.path.join(directory, f"*/*.png")
+        glob_match = os.path.join(directory, f"*{os.sep}*.png")
         matching_filepaths = glob.glob(glob_match)
         if len(matching_filepaths) == 0:
             raise print(f"ERROR: No screenshots found in {directory}")
@@ -189,35 +187,24 @@ class ScreenshotProcessor():
 
     @property
     def tile_step_size(self):
-        # Use a different method to calculate the tile step size
-        if len(self.screenshots) == 0:
-            raise RuntimeError("No screenshots available to calculate tile step size")
-        if self._tile_step_size != -1:
-            return self._tile_step_size
-        
-        # Calculate the step size based on looking at the minimum diffference between the x and z coordinates of all screenshots
-        x_coords = [screenshot.xCoordWS for screenshot in self.screenshots if screenshot.xCoordWS is not None]
-        z_coords = [screenshot.zCoordWS for screenshot in self.screenshots if screenshot.zCoordWS is not None]
-        if len(x_coords) == 0 or len(z_coords) == 0:
-            raise RuntimeError("No valid x or z coordinates found in screenshots")
-        x_diff = min([abs(x_coords[i] - x_coords[i+1]) for i in range(len(x_coords)-1)])
-        z_diff = min([abs(z_coords[i] - z_coords[i+1]) for i in range(len(z_coords)-1)])
-        # Check they're not different
-        if x_diff != z_diff:
-            print(f"WARNING: x_diff ({x_diff}) and z_diff ({z_diff}) are not equal, using the minimum of both")
-        self._tile_step_size = min(x_diff, z_diff)
-        return self._tile_step_size        
+        # take the first two tiles, and calculate the difference in x and z
+        tile_0 = self.screenshots[0]
+        tile_1 = self.screenshots[1]
+        x_diff = abs(tile_0.xCoordWS - tile_1.xCoordWS)
+        z_diff = abs(tile_0.zCoordWS - tile_1.zCoordWS)
+        # return which ever is larger
+        return max(x_diff, z_diff)
 
     def count(self):
         return len(self.screenshots)
 
-    def make_tiles(self):
+    def crop_screenshots(self):
         for screenshot in self.screenshots:
             if screenshot.tile_exists() and SKIP_EXISTING_TILES:
-                print(f"Skipping {screenshot.tile_filepath}")
+                print(f"Skipping existing {screenshot.tile_filepath}")
             else:
-                print(f"Creating cropped screenshot tile for coordinate {screenshot.xCoordWS}, {screenshot.zCoordWS}")
-                screenshot.create_tile()
+                print(f"Creating cropped screenshot for coordinate {screenshot.xCoordWS}, {screenshot.zCoordWS}")
+                screenshot.create_cropped_tile()
 
             if DELETE_ORIGINALS and screenshot.screenshot_filepath is not None:
                 os.remove(screenshot.screenshot_filepath)
@@ -315,6 +302,10 @@ class ScreenshotProcessor():
         self.composite_screenshot_tiles(included_tiles, filepath)
 
     def make_initial_tiles(self, output_directory: str, initial_z_dirname: int):
+        # Check we have at least two screenshots to work with, to calculate the tile step size
+        if len(self.screenshots) < 2:
+            raise RuntimeError("Not enough screenshots to calculate tile step size. At least two screenshots are required.")
+
         # Initial z should usually be 5, as we support 5 levels of detail
         for screenshot in self.screenshots:
             normalized_x = int(screenshot.xCoordWS / self.tile_step_size)
@@ -330,7 +321,6 @@ class ScreenshotProcessor():
 
                 print(f"Converting {screenshot.tile_filepath} to {intial_tile_filepath}")
                 image = Image.open(screenshot.tile_filepath)
-
                 
                 target_size = TILE_CROP_SIZE + TILE_OVERLAP
                 image_size = image.size
@@ -343,284 +333,29 @@ class ScreenshotProcessor():
 
                 image.save(intial_tile_filepath, quality=95)
 
-    def auto_find_crop(self):
-        # Find the highest detail screenshot
-        
-        # highest_detail_screenshot, highest_detail = self.find_highest_detail_screenshot()
-        
-        source_screenshot = self.mapped_screenshots[Screenshot.make_coordinate_string(5700, 3800)]
-        
-        # Then pick the z neighbour in either direction
-        screenshot_above = self.find_neighbour(source_screenshot, 0, self.tile_step_size)
-        screenshot_below = self.find_neighbour(source_screenshot, 0, -self.tile_step_size)
-        
-        # Pick the first non None neighbour
-        neighbour_screenshot = screenshot_above if screenshot_above is not None else screenshot_below
-        if neighbour_screenshot is None:
-            raise RuntimeError(f"No neighbours found at coordinate {source_screenshot.xCoordWS}, {source_screenshot.zCoordWS}")
-        
-        # now get the size of the screenshot
-        width, height = source_screenshot.screenshot_image.size
-        
-        # We now want to find the best matching row in the neighbour_screenshot for the source screenshot source row
-        
-        source_row = 0 if screenshot_above is not None else height - 1
-        print(f"source_screenshot: {source_screenshot}")
-        print(f"source_row: {source_row}")
-        print(f"neighbour_screenshot: {neighbour_screenshot}")
-        print(f"neighbour_screenshot direction: {'above' if screenshot_above is not None else 'below'}")
-        
-        best_match_index, best_match_score, all_scores = self.find_best_matching_row(source_screenshot, source_row, neighbour_screenshot)
-        print(f"Best match row: {best_match_index}, Best match score: {best_match_score}")
-        
-        # Visualize the match
-        visualization = self.visualize_match(source_screenshot.screenshot_filepath, source_row, neighbour_screenshot.screenshot_filepath, best_match_index)
-        visualization.show()
-    
-    def find_neighbour(self, screenshot: Screenshot, x_offset: int, z_offset: int) -> Screenshot:
-        x = screenshot.xCoordWS + x_offset
-        z = screenshot.zCoordWS + z_offset
-        neighbour_coordinate_lookup = Screenshot.make_coordinate_string(x, z)
-        try:
-            return self.mapped_screenshots[neighbour_coordinate_lookup]
-        except KeyError:
-            return None 
-
-    def find_highest_detail_screenshot(self) -> tuple[Screenshot, float]:
-        max_detail = ()
-        for screenshot in self.screenshots:
-            detail = self.measure_detail(screenshot)
-            print(f"detail for {screenshot.xCoordWS}, {screenshot.zCoordWS}: {detail}")
-            if max_detail == () or detail > max_detail[1]:
-                max_detail = (screenshot, detail)
-        return max_detail
-    
-    def measure_detail(self, screenshot: Screenshot) -> float:
-        """
-        Measure the detail of a screenshot by calculating the average pixel intensity of the edge image
-        """
-        image_path = screenshot.screenshot_filepath
-        img = Image.open(image_path)
-        # Convert to grayscale for edge detection
-        gray_img = img.convert("L")
-        # Apply edge detection filter
-        edge_img = gray_img.filter(ImageFilter.FIND_EDGES)
-        # Calculate the average pixel value in the edge image
-        edge_intensity = sum(edge_img.getdata()) / (edge_img.width * edge_img.height)
-        return edge_intensity
-
-    
-    def frequency_analysis(self, screenshot: Screenshot):
-        image_path = screenshot.screenshot_filepath
-        img = Image.open(image_path).convert("L")
-        img_array = np.array(img)
-        
-        # Apply FFT to get frequency domain representation
-        f_transform = fftpack.fft2(img_array)
-        f_transform_shifted = fftpack.fftshift(f_transform)
-        
-        # Calculate magnitudes of frequency components
-        magnitude = np.abs(f_transform_shifted)
-        
-        # Separate high frequency components (center is low frequency)
-        h, w = magnitude.shape
-        center_h, center_w = h//2, w//2
-        
-        # Create a mask for high frequency components
-        radius = min(center_h, center_w) // 3  # Adjust this threshold as needed
-        y, x = np.ogrid[:h, :w]
-        mask = ((y - center_h)**2 + (x - center_w)**2) > radius**2
-        
-        # Calculate high frequency energy
-        high_freq_energy = np.sum(magnitude * mask)
-        total_energy = np.sum(magnitude)
-        
-        return high_freq_energy / total_energy
-
-
-    def find_best_matching_row(self, source_screenshot: Screenshot, source_row_index: int, target_screenshot: Screenshot):
-        """
-        Find the best matching row in the target image for a given row from the source image.
-        
-        Parameters:
-        -----------
-        source_image_path : str
-            Path to the source image
-        target_image_path : str
-            Path to the target image where we want to find the matching row
-        source_row_index : int
-            Index of the row in the source image to match
-        metric : str, optional
-            Similarity metric to use ('mse', 'ncc', or 'sad')
-            
-        Returns:
-        --------
-        best_match_index : int
-            Index of the best matching row in the target image
-        best_match_score : float
-            Score of the best match (interpretation depends on metric)
-        all_scores : list
-            List of scores for all rows in the target image
-        """
-        
-        source_img = source_screenshot.screenshot_image
-        target_img = target_screenshot.screenshot_image
-        
-        # Convert to numpy arrays
-        source_array = np.array(source_img)
-        target_array = np.array(target_img)
-        
-        # Ensure images have the same width or resize if needed
-        if source_array.shape[1] != target_array.shape[1]:
-            print(f"Warning: Images have different widths. Source: {source_array.shape[1]}, Target: {target_array.shape[1]}")
-            # Resize target to match source width if needed
-            target_img = target_img.resize((source_img.width, target_img.height))
-            target_array = np.array(target_img)
-        
-        # Extract the source row
-        source_row = source_array[source_row_index]
-        
-        # Calculate scores for each row in the target image
-        scores = []
-        
-        for i in range(target_array.shape[0]):
-            target_row = target_array[i]
-            
-            # use normalized cross-correlation (NCC) (higher is better)
-            
-            # Handle multi-channel images
-            if len(source_row.shape) > 1:
-                # Calculate NCC for each channel and average
-                channel_scores = []
-                for c in range(source_row.shape[-1]):
-                    src = source_row[..., c].astype(float)
-                    tgt = target_row[..., c].astype(float)
-                    
-                    src_norm = src - np.mean(src)
-                    tgt_norm = tgt - np.mean(tgt)
-                    
-                    numerator = np.sum(src_norm * tgt_norm)
-                    denominator = np.sqrt(np.sum(src_norm**2) * np.sum(tgt_norm**2))
-                    
-                    # Avoid division by zero
-                    if denominator == 0:
-                        channel_scores.append(0)
-                    else:
-                        channel_scores.append(numerator / denominator)
-                
-                score = np.mean(channel_scores)
-            else:
-                src = source_row.astype(float)
-                tgt = target_row.astype(float)
-                
-                src_norm = src - np.mean(src)
-                tgt_norm = tgt - np.mean(tgt)
-                
-                numerator = np.sum(src_norm * tgt_norm)
-                denominator = np.sqrt(np.sum(src_norm**2) * np.sum(tgt_norm**2))
-                
-                # Avoid division by zero
-                if denominator == 0:
-                    score = 0
-                else:
-                    score = numerator / denominator
-                    
-            scores.append(score)
-        
-        # NCC, higher is better
-        best_match_index = np.argmax(scores)
-        best_match_score = scores[best_match_index]
-        
-        return best_match_index, best_match_score, scores
-
-    def visualize_match(self, source_image_path, source_row, target_image_path, target_row):
-        """
-        Create a visualization of the matching rows from both images.
-        
-        Parameters:
-        -----------
-        source_image_path : str
-            Path to the source image
-        target_image_path : str
-            Path to the target image
-        source_row : int
-            Index of the row in the source image
-        target_row : int
-            Index of the matching row in the target image
-            
-        Returns:
-        --------
-        visualization : PIL.Image
-            An image highlighting the matching rows in both images
-        """
-        # Open images
-        source_img = Image.open(source_image_path)
-        target_img = Image.open(target_image_path)
-        
-        # Convert to numpy arrays for manipulation
-        source_array = np.array(source_img)
-        target_array = np.array(target_img)
-        
-        # Create copies for highlighting
-        source_highlight = source_array.copy()
-        target_highlight = target_array.copy()
-        
-        # Highlight the rows (make them red for visibility)
-        if len(source_array.shape) == 3:  # Color image
-            source_highlight[source_row, :, 0] = 255  # Red channel
-            source_highlight[source_row, :, 1] = 0    # Green channel
-            source_highlight[source_row, :, 2] = 0    # Blue channel
-            
-            target_highlight[target_row, :, 0] = 255
-            target_highlight[target_row, :, 1] = 0
-            target_highlight[target_row, :, 2] = 0
-        else:  # Grayscale image
-            source_highlight[source_row, :] = 255
-            target_highlight[target_row, :] = 255
-        
-        # Create a new image to show both side by side
-        if len(source_array.shape) == 3:
-            height = max(source_array.shape[0], target_array.shape[0])
-            width = source_array.shape[1] + target_array.shape[1]
-            visualization = np.zeros((height, width, 3), dtype=np.uint8)
-            
-            visualization[:source_array.shape[0], :source_array.shape[1]] = source_highlight
-            visualization[:target_array.shape[0], source_array.shape[1]:] = target_highlight
-        else:
-            height = max(source_array.shape[0], target_array.shape[0])
-            width = source_array.shape[1] + target_array.shape[1]
-            visualization = np.zeros((height, width), dtype=np.uint8)
-            
-            visualization[:source_array.shape[0], :source_array.shape[1]] = source_highlight
-            visualization[:target_array.shape[0], source_array.shape[1]:] = target_highlight
-        
-        return Image.fromarray(visualization)
-
-
 
 if __name__ == "__main__":
     # Set up the args - We take an input directory to locate the screenshots and write tiles next to them
     parser = argparse.ArgumentParser(description="Center crop screenshots to a given resolution")
     parser.add_argument("input_dir", help="The directory containing the screenshots to crop")
-    parser.add_argument("output_dir", help="The directory containing the screenshots to crop")
-    parser.add_argument("-f", "--find-crop", help="Automatically find the crop size", action="store_true")
-    parser.add_argument("-m", "--make_map", help="Create a large map from the screenshots instead of the final tiles", action="store_true")
+    parser.add_argument("output_dir", help="The directory to save the initial LOD 0 tiles to")
+    parser.add_argument("-c", "--crop_only", help="Only crop the screenshots, do not create tiles", action="store_true")
+    parser.add_argument("-m", "--make_map", help="Create a large map from the screenshots instead of the final tiles. WARNING: This may take a long time and use a lot of memory.", action="store_true")
     args = parser.parse_args()
 
     print(f"Processing screenshots in {args.input_dir}")
     screenshot_processor = ScreenshotProcessor.from_directory(args.input_dir)
     
-    if args.find_crop:
-        print("Finding the crop size")
-        screenshot_processor.auto_find_crop()
-        sys.exit(0)
-    
-    screenshot_processor.make_tiles() # Will also delete the original screenshots if DELETE_ORIGINALS is True
+    print(f"Cropping {screenshot_processor.count()} screenshots")
+    screenshot_processor.crop_screenshots() # Will also delete the original screenshots if DELETE_ORIGINALS is True
 
     if args.make_map:
         print("Making large test map")
         screenshot_processor.make_large_map(os.path.join(args.output_dir, "test_map.jpeg"))
-    else:
-        print("Creating initial tiles")
+        sys.exit(0)
+
+    if not args.crop_only:
+        print("Creating initial LOD 0 tiles")
         screenshot_processor.make_initial_tiles(args.output_dir, 0)
 
+    print("Done processing screenshots")
