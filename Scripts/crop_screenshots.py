@@ -124,6 +124,7 @@ class Screenshot():
 class ScreenshotProcessor():
     screenshots: list[Screenshot]
     mapped_screenshots: dict[str, Screenshot]
+    _tile_step_size: int = -1
 
     def __init__(self, screenshots: list[Screenshot]|None = None):
         if screenshots is None:
