@@ -68,7 +68,7 @@ class MapTileContainer():
     _tile_size: int
 
     @classmethod
-    def from_directory(cls, directory: str) -> "MapTileContainer":
+    def from_directory(cls, directory: str, background_color: str) -> "MapTileContainer":
         glob_path = os.path.join(directory, MapTile.get_glob())
         matching_files = glob.glob(glob_path)
         lod_tiles: dict[int, list[MapTile]] = {}
@@ -85,9 +85,9 @@ class MapTileContainer():
             lod_tiles[lod_level].append(tile)
         if len(lod_tiles) == 0:
             raise Exception("No LOD tiles found")
-        return cls(lod_tiles, directory)
+        return cls(lod_tiles, directory, background_color)
     
-    def __init__(self, tile_dict: dict[int, list[MapTile]], basedir: str, background_color: str = "#1f333d"):
+    def __init__(self, tile_dict: dict[int, list[MapTile]], basedir: str, background_color: str):
         self.map_tiles = tile_dict
         self.basedir = basedir
         self._tile_size = self.find_tile_size()
@@ -191,19 +191,22 @@ class MapTileContainer():
         new_image = new_image.resize((self._tile_size, self._tile_size), Image.Resampling.LANCZOS)
         map_tile = MapTile(source_x//2, source_z//2, new_lod_level, self.basedir)
         if not os.path.exists(map_tile.filepath) or overwrite_existing:
-            map_tile.write_image(new_image)
+            map_tile.write_image(new_image, quality=98)
 
         return map_tile
 
 
 if __name__ == "__main__":
+    DEFAULT_OCEAN_COLOR = "#273132"
+
     # Set up the args - We take an input directory to locate the screenshots and write tiles next to them
     parser = argparse.ArgumentParser(description="Center crop screenshots to a given resolution")
     parser.add_argument("input_dir", help="The directory containing the screenshots to crop")
     parser.add_argument("-f", "--force-overwrite", action="store_true", help="Force overwrite existing files")
+    parser.add_argument("--ocean_color", default=DEFAULT_OCEAN_COLOR, help=f"Hex color code for the ocean (default: {DEFAULT_OCEAN_COLOR}).")
     args = parser.parse_args()
 
     print(f"Processing screenshots in {args.input_dir}")
-    map_tile_container = MapTileContainer.from_directory(args.input_dir)
+    map_tile_container = MapTileContainer.from_directory(args.input_dir, background_color=args.ocean_color)
     map_tile_container.make_remaining_lod_levels(args.force_overwrite)
     print("Done creating zoom levels.")

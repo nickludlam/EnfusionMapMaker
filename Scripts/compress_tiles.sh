@@ -7,8 +7,8 @@
 BASE_DIR=$1
 
 # Set source and destination directories
-SOURCE_DIR_NAME="LODS"
-DEST_DIR_NAME="Compressed_LODS"
+SOURCE_DIR_NAME="lods"
+DEST_DIR_NAME="lods-compressed"
 
 SOURCE_DIR="$BASE_DIR/$SOURCE_DIR_NAME"
 DEST_DIR="$BASE_DIR/$DEST_DIR_NAME"
@@ -27,14 +27,13 @@ find "$SOURCE_DIR" -type f -name "*.jpg" | while read -r file; do
     mkdir -p "$(dirname "$DEST_DIR/$relative_path")"
     
     # Process the image with ImageMagick
-    # Options:
+    # Options explained:
     # -strip: Remove metadata
     # -gamma 0.70 -level -5%,130%: Adjust gamma and levels to approximate old auto-exposure correction
     # -quality 75: Compress with 75% quality (adjust as needed)
     # -colorspace sRGB: Ensure consistent color space
     mogrify -strip \
-            -gamma 0.70 -level -5%,130% \
-            -quality 75 \
+            -quality 70 \
             -sampling-factor 4:2:0 \
             -colorspace sRGB \
             -interlace Plane \
