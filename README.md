@@ -47,7 +47,7 @@ chess piece icon.
 
 11. Run a test of the process by pressing the **Start capture** button at the bottom of the panel, and you should start seeing the camera move around the map, taking screenshots at regular intervals, saving files to the specified directory.
 
-The output directory is configured as the `$profile` directory of Workbench, which is typically `C:\Users\USERNAME\Documents\My Games\ArmaReforgerWorkbench\profile\`.
+The output directory is configured as the `$profile` directory of Workbench, which is typically `C:\Users\<USERNAME>\Documents\My Games\ArmaReforgerWorkbench\profile\`.
 
 Now stop the process by either hitting the escape key, or **Stop capture** button, and delete these test screenshots, as there's one more step to do before you can use them.
 
@@ -114,7 +114,27 @@ It's recommended to capture a small area of the map first. For example, coordina
 
 ## Extracting the location information
 
-Add the **Enfusion** directory as a mod, and then look for the newly added Ghost icon in the toolbar. This will give you access to the tool and its various options.
+![Auto Screenshot Maker Tool panel](images/resource_finder.png)
+
+Add the **Enfusion** directory as a mod, and then look for the **Ghost** icon in the toolbar. This will give you access to the location extraction tool and its various options.
+
+![Auto Screenshot Maker Tool panel](images/entity_query_tool_options.png)
+
+*Query Bounds Min/Max* allows you to restrict the query to apply only to a certain region.
+
+*Component Search Mode* dictates which `EResourceType` you are running a query for.
+
+*Component Query Flags* is exposed as one of the parameters passed to [`QueryEntitiesByAABB()`](https://community.bistudio.com/wikidata/external-data/arma-reforger/ArmaReforgerScriptAPIPublic/interfaceSCR__WorldEditorToolHelper.html#ac2b5c818551c292a3f8898edff9ba81b). I've not noticed any issues by leaving this as the default value.
+
+*Exclusion Terms* is used as a filter to remove unwanted matches from the exported data. I've found that the only problems are caused by wall mounted tool racks, so the default value will filter out anything with the word "Tool" in it. This might change in future updates.
+
+*Merge Radius* is currently non-functional, so should be ignored.
+
+*Output Mode* dictates whether the results from the query are printed to the editor console, or written to a JSON file.  *Custom Print Format* is a toggle for [some custom code](https://github.com/nickludlam/EnfusionMapMaker/blob/b3d5aa94b447c404620ff371ed65ce22d6aa3556/Enfusion/Scripts/WorkbenchGame/EnfusionMapMaker/ResourceQueryWorldEditorTool.c#L324) I used while exploring the returned data. You do not need to use this unless you want to also edit the underlying plugin code.
+
+Output Filename controls the filename written to the output directory `C:\Users\<USERNAME>\Documents\My Games\ArmaReforgerWorkbench\profile\`.
+
+Once you have configured the query, you then use the *Run Query* button on the bottom right.
 
 # License
 

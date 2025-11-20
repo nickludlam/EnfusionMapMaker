@@ -43,7 +43,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Max",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "120000 100 120000"
+		defvalue: "130000 100 130000"
 	)]
 	vector m_queryBoundsMax = Vector(0, 0, 0);
 	
