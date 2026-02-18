@@ -4,6 +4,8 @@ import os
 import sys
 import glob
 from PIL import Image, ImageOps, ImageFilter
+import numpy as np
+# from scipy import fftpack
 
 # Configuration - Make sure this matches the Enfusion Workbench tool settings
 TILE_CROP_SIZE = 550 # pixels - Set this initially to be too large for perfect tiling
@@ -29,9 +31,9 @@ class Screenshot():
     # This has two images, the full resolution raw screenshot, and the cropped tile
     _screenshot_filepath: str|None
 
-    _tile_filepath: str
-    _screenshot_image: Image
-    _tile_image: Image
+    _tile_filepath: str|None
+    _screenshot_image: Image.Image|None
+    _tile_image: Image.Image|None
 
     def __init__(self, xCoordWS: int, zCoordWS: int, type: ScreenshotTileType, screenshot_filepath: str|None = None, tile_filepath: str|None = None):
         self.type = type
@@ -48,7 +50,7 @@ class Screenshot():
     @property
     def screenshot_image(self):
         if self._screenshot_image is None:
-            if os.path.exists(self.screenshot_filepath):            
+            if self.screenshot_filepath and os.path.exists(self.screenshot_filepath):
                 self._screenshot_image = Image.open(self.screenshot_filepath)
                 
             else:
@@ -76,6 +78,8 @@ class Screenshot():
         self._tile_image = None
 
     def generate_tile_path(self):
+        if self.screenshot_filepath is None:
+            raise RuntimeError("Cannot generate tile path without a screenshot filepath")
         # take filepath, strip of .png, and add output_file_suffix + output_tile_type
         return self.screenshot_filepath.replace(".png", f"_{INTERMEDIATE_TILE_FILENAME_SUFFIX}.png")
     
@@ -120,6 +124,7 @@ class Screenshot():
 class ScreenshotProcessor():
     screenshots: list[Screenshot]
     mapped_screenshots: dict[str, Screenshot]
+    _tile_step_size: int = -1
 
     def __init__(self, screenshots: list[Screenshot]|None = None):
         if screenshots is None:
@@ -129,7 +134,7 @@ class ScreenshotProcessor():
         for screenshot in screenshots:
             self.mapped_screenshots[screenshot.coordinate_string] = screenshot
         if len(screenshots) != len(self.mapped_screenshots):
-            raise RuntimeError("WARNING: Duplicate screenshots found")
+            raise RuntimeError("Duplicate screenshots found")
 
         if len(screenshots) > 0:
             self.sort()
@@ -141,7 +146,7 @@ class ScreenshotProcessor():
         glob_match = os.path.join(directory, f"*{os.sep}*.png")
         matching_filepaths = glob.glob(glob_match)
         if len(matching_filepaths) == 0:
-            raise print(f"ERROR: No screenshots found in {directory}")
+            raise RuntimeError(f"No screenshots found in {directory}")
 
         print(f"Importing {len(matching_filepaths)} files")
         for filepath in matching_filepaths:
@@ -198,13 +203,32 @@ class ScreenshotProcessor():
 
     @property
     def tile_step_size(self):
-        # take the first two tiles, and calculate the difference in x and z
-        tile_0 = self.screenshots[0]
-        tile_1 = self.screenshots[1]
-        x_diff = abs(tile_0.xCoordWS - tile_1.xCoordWS)
-        z_diff = abs(tile_0.zCoordWS - tile_1.zCoordWS)
-        # return which ever is larger
-        return max(x_diff, z_diff)
+        # Use a different method to calculate the tile step size
+        if len(self.screenshots) == 0:
+            raise RuntimeError("No screenshots available to calculate tile step size")
+        if self._tile_step_size != -1:
+            return self._tile_step_size
+        
+        # Get the sorted set of unique x and z coordinates
+        x_coords = sorted(set([screenshot.xCoordWS for screenshot in self.screenshots if screenshot.xCoordWS is not None]))
+        z_coords = sorted(set([screenshot.zCoordWS for screenshot in self.screenshots if screenshot.zCoordWS is not None]))
+        
+        # Debug print the first 10 x coordinates
+        if len(x_coords) == 0 or len(z_coords) == 0:
+            raise RuntimeError("No valid x or z coordinates found in screenshots")
+        x_diff = min([abs(x_coords[i] - x_coords[i+1]) for i in range(len(x_coords)-1)])
+        z_diff = min([abs(z_coords[i] - z_coords[i+1]) for i in range(len(z_coords)-1)])
+
+        # Check we're not zero
+        if x_diff == 0 or z_diff == 0:
+            raise RuntimeError("Calculated tile step size is zero, cannot proceed")
+
+        # Check they're not different
+        if x_diff != z_diff:
+            print(f"WARNING: x_diff ({x_diff}) and z_diff ({z_diff}) are not equal. There might be an issue with the screenshot coordinates.")
+        self._tile_step_size = min(x_diff, z_diff)
+        print(f"Calculated tile step size: {self._tile_step_size}")
+        return self._tile_step_size        
 
     def count(self):
         return len(self.screenshots)
@@ -313,15 +337,21 @@ class ScreenshotProcessor():
         print(f"Creating large map from {len(included_tiles)} tiles (min_x: {min_x_coord}, min_z: {min_z_coord}, max_x: {max_x_coord}, max_z: {max_z_coord})")
         self.composite_screenshot_tiles(included_tiles, filepath)
 
-    def make_initial_tiles(self, output_directory: str, initial_z_dirname: int):
-        # Check we have at least two screenshots to work with, to calculate the tile step size
+    def make_initial_tiles(self, output_directory: str, initial_z_dirname: int, is_ocean_tile = lambda tile_path: False):
         if len(self.screenshots) < 2:
             raise RuntimeError("Not enough screenshots to calculate tile step size. At least two screenshots are required.")
+
+        created_image_count = 0
 
         # Initial z should usually be 5, as we support 5 levels of detail
         for screenshot in self.screenshots:
             normalized_x = int(screenshot.xCoordWS / self.tile_step_size)
             normalized_z = int(screenshot.zCoordWS / self.tile_step_size)
+
+            # Skip ocean tiles if the function indicates so
+            if is_ocean_tile(screenshot.tile_filepath):
+                print(f"Skipping ocean tile at {screenshot.tile_filepath}")
+                continue
 
             # Folder structure is output_directory/initial_z_dirname/normalized_x/normalized_z
             # i.e. output_directory/5/0/0/tile.jpg
@@ -343,17 +373,98 @@ class ScreenshotProcessor():
                     bottom = (image_size[1] + target_size) / 2
                     image = image.crop((left, top, right, bottom))
 
-                image.save(intial_tile_filepath, quality=95)
+                image.save(intial_tile_filepath, quality=98)
+                created_image_count += 1
+
+        print(f"Created {created_image_count} initial tiles in {output_directory}/{initial_z_dirname}/")
+        
+def is_predominantly_ocean(image_path, target_color, color_threshold, percentage_threshold):
+    """
+    Checks if an image is predominantly a specific color, based on thresholds.
+
+    Args:
+        image_path (str): Path to the image file.
+        target_color (tuple): The target (R, G, B) ocean color.
+        color_threshold (int): The maximum Euclidean distance a pixel's color
+                               can be from the target color to be counted.
+        percentage_threshold (float): The minimum percentage (0.0 to 1.0) of
+                                      pixels that must be "ocean" for the
+                                      image to be considered an ocean tile.
+
+    Returns:
+        bool: True if the image is predominantly the target color, False otherwise.
+    """
+    try:
+        # Open the image and convert to RGB
+        with Image.open(image_path) as img:
+            img_rgb = img.convert("RGB")
+            
+            # Convert the image to a NumPy array
+            # data will have shape (height, width, 3)
+            data = np.array(img_rgb)
+            
+            # Get total number of pixels
+            total_pixels = data.shape[0] * data.shape[1]
+            if total_pixels == 0:
+                return False # Handle empty image
+
+            # --- Efficient NumPy Calculation ---
+            
+            # 1. Create a NumPy array for the target color
+            target_color_np = np.array(target_color)
+            
+            # 2. Calculate the squared Euclidean distance from each pixel to the target color
+            # We use squared distance to avoid a costly square root on every pixel.
+            # np.sum(..., axis=-1) sums the (R-R')^2, (G-G')^2, (B-B')^2 for each pixel
+            distances_sq = np.sum((data - target_color_np)**2, axis=-1)
+            
+            # 3. Count pixels where the squared distance is less than the squared threshold
+            ocean_pixel_count = np.sum(distances_sq <= color_threshold**2)
+            
+            # 4. Calculate the percentage
+            ocean_percentage = ocean_pixel_count / total_pixels
+            
+            # 5. Compare against the threshold
+            return ocean_percentage >= percentage_threshold
+
+    except (IOError, FileNotFoundError):
+        print(f"Error: Could not open image at {image_path}")
+        return False
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
 
 
 if __name__ == "__main__":
+    # Data related to detecting ocean tiles, which we skip to save on serving redundant tiles
+    DEFAULT_OCEAN_COLOR = "#273132"
+    DEFAULT_OCEAN_COLOR_TOLERANCE = 3 # Color tolerance for ocean detection - max Euclidean distance in RGB space
+    MIN_OCEAN_PERCENTAGE = 0.98  # Minimum percentage of ocean pixels to consider a tile as ocean
+
     # Set up the args - We take an input directory to locate the screenshots and write tiles next to them
     parser = argparse.ArgumentParser(description="Center crop screenshots to a given resolution")
     parser.add_argument("input_dir", help="The directory containing the screenshots to crop")
-    parser.add_argument("output_dir", help="The directory to save the initial LOD 0 tiles to")
-    parser.add_argument("-c", "--crop_only", help="Only crop the screenshots, do not create tiles", action="store_true")
-    parser.add_argument("-m", "--make_map", help="Create a large map from the screenshots instead of the final tiles. WARNING: This may take a long time and use a lot of memory.", action="store_true")
+    parser.add_argument("output_dir", help="The directory containing the screenshots to crop")
+    parser.add_argument("-m", "--make_map", help="Create a large map from the screenshots instead of the final tiles", action="store_true")
+    parser.add_argument("--skip-ocean-tiles", help="Skip creating tiles that are predominantly ocean", action="store_true")
+    parser.add_argument("--ocean_color", default=DEFAULT_OCEAN_COLOR, help=f"Hex color code for the ocean (default: {DEFAULT_OCEAN_COLOR}).")
+    parser.add_argument("--ocean_color_tolerance", type=int, default=DEFAULT_OCEAN_COLOR_TOLERANCE, help=f"Color tolerance for ocean detection (default: {DEFAULT_OCEAN_COLOR_TOLERANCE}).")
+    parser.add_argument("--min_ocean_percentage", type=float, default=MIN_OCEAN_PERCENTAGE, help=f"Minimum percentage of ocean pixels to consider a tile as ocean (default: {MIN_OCEAN_PERCENTAGE}).")
+
     args = parser.parse_args()
+
+    # Check the format of ocean color - starts with # and is 7 characters long
+    if not args.ocean_color.startswith("#") or len(args.ocean_color) != 7:
+        print("Error: Ocean color must be a hex code in the format #RRGGBB")
+        sys.exit(1)
+    # Now check for [1:] being valid hex digits
+    try:
+        int(args.ocean_color[1:], 16)
+    except ValueError:
+        print("Error: Ocean color must be a hex code in the format #RRGGBB")
+        sys.exit(1)
+
+    ocean_color_rgb = tuple(int(args.ocean_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
 
     print(f"Processing screenshots in {args.input_dir}")
     screenshot_processor = ScreenshotProcessor.from_directory(args.input_dir)
@@ -364,10 +475,14 @@ if __name__ == "__main__":
     if args.make_map:
         print("Making large test map")
         screenshot_processor.make_large_map(os.path.join(args.output_dir, "test_map.jpeg"))
-        sys.exit(0)
-
-    if not args.crop_only:
-        print("Creating initial LOD 0 tiles")
-        screenshot_processor.make_initial_tiles(args.output_dir, 0)
+    else:
+        if args.skip_ocean_tiles:
+            print("Skipping ocean tiles enabled")
+            is_ocean_tile = lambda tile_path: is_predominantly_ocean(tile_path, ocean_color_rgb, args.ocean_color_tolerance, args.min_ocean_percentage)
+        else:
+            is_ocean_tile = lambda tile_path: False
+      
+        print("Creating initial tiles")
+        screenshot_processor.make_initial_tiles(args.output_dir, 0, is_ocean_tile=is_ocean_tile)
 
     print("Done processing screenshots")
