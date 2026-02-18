@@ -78,14 +78,6 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	)]
 	string m_exclusionTerms;
 	
-	[Attribute(
-		category: "Query",
-		desc: "Merge radius",
-		uiwidget: UIWidgets.Auto,
-		defvalue: "1"
-	)]
-	float m_mergeRadius = 1.0;
-
 
 	////////////////////////////
 	// Output category
