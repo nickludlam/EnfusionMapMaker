@@ -5,7 +5,8 @@ enum EQComponentSearchMode {
 	REFUEL,
 	MOB_SPAWN,
 	CAPTURE_POINT,
-	CONTROL_POINT
+	CONTROL_POINT,
+	RADIO_RELAY
 }
 
 enum EQOutputMode {
@@ -44,7 +45,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Max",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "160000 500 160000"
+		defvalue: "160000 1000 160000"
 	)]
 	vector m_queryBoundsMax = Vector(0, 0, 0);
 	
@@ -183,6 +184,8 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			return filterRegularCapturePointEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.CONTROL_POINT) {
 			return filterControlPointEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.RADIO_RELAY) {
+			return filterRadioRelayEntitiesCallback(e);
 		}
 		
 		return false;
@@ -233,31 +236,37 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		return false;
 	}
 	
-	bool filterMilitaryBase(IEntity e, bool canBeHQ, bool isControlPoint) {
+	bool filterMilitaryBase(IEntity e, bool canBeHQ, bool isControlPoint, bool isRadioRelay) {
 		if (e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
 			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));
-			if (base.GetType() == SCR_ECampaignBaseType.BASE) {
+			if (!isRadioRelay && base.GetType() == SCR_ECampaignBaseType.BASE) {
 				// If it can be an HQ, the control point status is irrelevant
 				if (canBeHQ && base.CanBeHQ()) {
 					return true;
 				} else if (!canBeHQ && !base.CanBeHQ() && base.IsControlPoint() == isControlPoint) {
 					return true;
 				}
+			} else if (isRadioRelay && base.GetType() == SCR_ECampaignBaseType.RELAY) {
+				return true;
 			}
 		}
 		return false;
 	}
 
 	bool filterMOBSpawnEntitiesCallback(IEntity e) {
-		return filterMilitaryBase(e, true, false);
+		return filterMilitaryBase(e, true, false, false);
 	}
 	
 	bool filterRegularCapturePointEntitiesCallback(IEntity e) {
-		return filterMilitaryBase(e, false, false);
+		return filterMilitaryBase(e, false, false, false);
 	}
 	
 	bool filterControlPointEntitiesCallback(IEntity e) {
-		return filterMilitaryBase(e, false, true);
+		return filterMilitaryBase(e, false, true, false);
+	}
+	
+	bool filterRadioRelayEntitiesCallback(IEntity e) {
+		return filterMilitaryBase(e, false, false, true);
 	}
 	
 	
