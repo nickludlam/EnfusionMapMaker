@@ -3,8 +3,9 @@ enum EQComponentSearchMode {
 	VEHICLES,
 	VEHICLEREPAIR,
 	REFUEL,
-	POTENTIAL_MOB,
+	MOB_SPAWN,
 	CAPTURE_POINT,
+	CONTROL_POINT
 }
 
 enum EQOutputMode {
@@ -35,7 +36,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Min",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "0 0 0"
+		defvalue: "0 -500 0"
 	)]
 	vector m_queryBoundsMin = Vector(0, 0, 0);
 
@@ -43,7 +44,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		category: "Query",
 		desc: "Bounds Max",
 		uiwidget: UIWidgets.Coords,
-		defvalue: "120000 100 120000"
+		defvalue: "160000 500 160000"
 	)]
 	vector m_queryBoundsMax = Vector(0, 0, 0);
 	
@@ -176,10 +177,12 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			return filterVehicleRepairEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.REFUEL) {
 			return filterRefuelEntitiesCallback(e);
-		} else if (m_componentSearchMode == EQComponentSearchMode.POTENTIAL_MOB) {
-			return filterMOBEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.MOB_SPAWN) {
+			return filterMOBSpawnEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.CAPTURE_POINT) {
-			return filterCapturePointEntitiesCallback(e);
+			return filterRegularCapturePointEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.CONTROL_POINT) {
+			return filterControlPointEntitiesCallback(e);
 		}
 		
 		return false;
@@ -230,28 +233,33 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		return false;
 	}
 	
-	
-	bool filterMOBEntitiesCallback(IEntity e) {
+	bool filterMilitaryBase(IEntity e, bool canBeHQ, bool isControlPoint) {
 		if (e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
 			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));
-			if (base.CanBeHQ() && base.GetType() == SCR_ECampaignBaseType.BASE) {
-				return true;
+			if (base.GetType() == SCR_ECampaignBaseType.BASE) {
+				// If it can be an HQ, the control point status is irrelevant
+				if (canBeHQ && base.CanBeHQ()) {
+					return true;
+				} else if (!canBeHQ && !base.CanBeHQ() && base.IsControlPoint() == isControlPoint) {
+					return true;
+				}
 			}
 		}
-		
 		return false;
+	}
+
+	bool filterMOBSpawnEntitiesCallback(IEntity e) {
+		return filterMilitaryBase(e, true, false);
 	}
 	
-	bool filterCapturePointEntitiesCallback(IEntity e) {
-		if (e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
-			SCR_CampaignMilitaryBaseComponent base = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));
-			if (!base.CanBeHQ() && base.GetType() == SCR_ECampaignBaseType.BASE) {
-				return true;
-			}
-		}
-		
-		return false;
+	bool filterRegularCapturePointEntitiesCallback(IEntity e) {
+		return filterMilitaryBase(e, false, false);
 	}
+	
+	bool filterControlPointEntitiesCallback(IEntity e) {
+		return filterMilitaryBase(e, false, true);
+	}
+	
 	
 	// Add them all by default
 	bool addEntitiesCallback(IEntity e) {
@@ -303,6 +311,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		}
 	}
 	
+	// Additional information required when writing supply location data
 	void WriteSupplyCacheData(IEntity e, FileHandle fh) {
 		// Resource values
 		bool entityResourcesInfinite;
@@ -322,24 +331,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 
 		foreach(IEntity foundEntity : m_entityResults) {
 			if (customFormat) {
-				vector position = foundEntity.GetOrigin();
-				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
-				float relativeHeight = position[1] - worldHeight;
-
-								
-				bool entityResourcesInfinite;
-				float entityTotalResources;
-				GetResourceAttributes(foundEntity, entityResourcesInfinite, entityTotalResources);
-
-				
-				Print("-------");
-				Print(foundEntity);
-				PrintFormat("  HEIGHT: %1", relativeHeight);
-				if (entityResourcesInfinite) {
-					PrintFormat("  RESOURCES: INFINITE");
-				} else {
-					PrintFormat("  RESOURCES: %1", entityTotalResources);
-				}
+				CustomPrintEntity(foundEntity, api);
 			} else {
 				Print(foundEntity);
 			}
@@ -347,6 +339,26 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		
 		int entityCount = m_entityResults.Count();
 		PrintFormat("Total entity count: %1", entityCount);
+	}
+	
+	// Custom entity printing where we can get additional information
+	void CustomPrintEntity(IEntity entity, WorldEditorAPI api) {
+		vector position = entity.GetOrigin();
+		float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
+		float relativeHeight = position[1] - worldHeight;
+						
+		bool entityResourcesInfinite;
+		float entityTotalResources;
+		GetResourceAttributes(entity, entityResourcesInfinite, entityTotalResources);
+		
+		Print("-------");
+		Print(entity);
+		PrintFormat("  HEIGHT: %1", relativeHeight);
+		if (entityResourcesInfinite) {
+			PrintFormat("  RESOURCES: INFINITE");
+		} else {
+			PrintFormat("  RESOURCES: %1", entityTotalResources);
+		}
 	}
 	
 	void GetResourceAttributes(IEntity resourceEntity, out bool infiniteResources, out float totalResourceValue) {
