@@ -1,8 +1,9 @@
 enum EQComponentSearchMode {
-	SUPPLIES,
-	VEHICLES,
-	VEHICLEREPAIR,
-	REFUEL,
+	SUPPLY_CACHE,
+	CAMPAIGN_SUPPLIES,
+	VEHICLE,
+	VEHICLE_REPAIR,
+	VEHICLE_REFUEL,
 	MOB_SPAWN,
 	CAPTURE_POINT,
 	CONTROL_POINT,
@@ -11,12 +12,30 @@ enum EQComponentSearchMode {
 
 enum EQOutputMode {
 	CONSOLE,
+	CONSOLE_DEBUG,
 	FILE
 }
 
+// We generate our own map of this data as the methods in
+// SCR_CampaignSourceBaseComponent are protected!?
+class CampaignSuppliesInformation {
+	string m_sName;
+	int m_iIncome;
+	int m_iArrivalTime;
+
+	// A simple constructor makes insertion much cleaner
+    void CampaignSuppliesInformation(string name, int income, int arrivalTime)
+    {
+        m_sName = name;
+        m_iIncome = income;
+        m_iArrivalTime = arrivalTime;
+    }
+}
+
+
 [WorkbenchToolAttribute(
 	name: "Entity Query Tool",
-	description: "Queries the map for resources, inside an AABB, and allows you to reject based on substring of the XOB path",
+	description: "Queries the map for resources, inside an AABB, and allows you to reject based on substring of the XOB path. A Single Query will use the selected search mode. A Batch Query will run all of them.",
 	wbModules: {"WorldEditor"},
 	awesomeFontCode: 0xf6e2)]
 class EntityQueryWorldEditorTool: WorldEditorTool
@@ -27,8 +46,10 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	// State vars
 
 	World m_currentWorld;
-	ref array<IEntity> m_entityResults = null;
-	ref array<string> m_excludeStringArray = null;
+	ref array<IEntity> m_entityResults = new array<IEntity>;
+	ref array<string> m_excludeStringArray = new array<string>;
+	
+	ref array<ref CampaignSuppliesInformation> m_campaignSuppliesInformation = new array<ref CampaignSuppliesInformation>();
 	
 	////////////////////////////
 	// Query category
@@ -56,7 +77,7 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			desc: "Entity component search mode",
 			uiwidget: UIWidgets.ComboBox,
 			enums: ParamEnumArray.FromEnum(EQComponentSearchMode),
-			defvalue: EQComponentSearchMode.SUPPLIES.ToString()
+			defvalue: EQComponentSearchMode.SUPPLY_CACHE.ToString()
 	)]
 	EQComponentSearchMode m_componentSearchMode;
 
@@ -92,38 +113,88 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	)]
 	EQOutputMode m_outputMode;
 		
-	[Attribute("entities.json", UIWidgets.Auto, "Output filename prefix", "", null, "File Output")]
-	string m_outputFilename = "entities.json";
-
-	[Attribute("0", UIWidgets.Auto, "Print using a custom formatter", "", null, "Output")]
-	bool m_customPrintFormat = false;
+	[Attribute("everon_conflict", UIWidgets.Auto, "Output filename prefix (usually map + game mode)", "", null, "File Output")]
+	string m_outputFilePrefix = "everon_conflict";
 
 	////////////////////////////
 	// Buttons
 
-	[ButtonAttribute("Run Query")]
-	void RunQuery() {
+	[ButtonAttribute("Run Batch Query")]
+	void RunBatchQuery() {
 		if (!BeforeQueryCheck()) {
 			Print("Query not possible");
 			return;
 		}
 		
+		EQComponentSearchMode originalValue = m_componentSearchMode;
+		
+		// Now loop over all our EQComponentSearchMode
+		typename t = EQComponentSearchMode;
+		int tVarCount = t.GetVariableCount();
+		for (int i = 0; i < tVarCount; i++) {
+			EQComponentSearchMode searchMode;
+			if (t.GetVariableValue(null, i, searchMode)) {
+				m_componentSearchMode = searchMode; // Override the chosen search mode
+				QueryAndOutput();
+			}
+		}
+		
+		m_componentSearchMode = originalValue;
+	}
+
+	[ButtonAttribute("Run Single Query")]
+	void RunSingleQuery() {
+		if (!BeforeQueryCheck()) {
+			Print("Query not possible");
+			return;
+		}
+		
+		QueryAndOutput();
+	}
+
+	// [ButtonAttribute("Debug")]
+	// void Debug() {
+
+	// 	//proto external int GetSelectedEntitiesCount();
+	// 	//proto external IEntitySource GetSelectedEntity(int n = 0);
+	// 	WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+	// 	WorldEditorAPI api = worldEditor.GetApi();
+	// 	m_currentWorld = api.GetWorld();
+
+	// 	int selectedEntityCount = api.GetSelectedEntitiesCount();
+	// 	for (int i = 0; i < selectedEntityCount; i++) {
+	// 		IEntitySource sourceEntity = api.GetSelectedEntity(i);
+	// 		IEntity selectEntity = api.SourceToEntity(sourceEntity);
+	// 		Print("Name: " + selectEntity.GetName());
+	// 		string niceName = api.GetEntityNiceName(sourceEntity);
+	// 		Print("Nice name: " + niceName);
+	// 		ResourceName prefabPathSource = SCR_ResourceNameUtils.GetPrefabName(selectEntity);
+	// 		Print("Path: " + prefabPathSource);
+	// 	}
+	// }
+	
+	////////////////////////////
+	// Internals
+	
+	void QueryAndOutput()
+	{
+        // First clear the results of the last query
+   		m_entityResults.Clear();
+
 		PrintFormat("Query between %1 and %2 using flags EQueryEntitiesFlags.%3", m_queryBoundsMin, m_queryBoundsMax, EQueryEntitiesFlagsToString(m_componentQueryFlags));		
 		bool queryResult = m_currentWorld.QueryEntitiesByAABB(m_queryBoundsMin, m_queryBoundsMax, this.addEntitiesCallback, this.filterEntitiesCallback, m_componentQueryFlags);
 		
 		if (queryResult) {
 			if (m_outputMode == EQOutputMode.FILE) {
-				WriteJSONEntityCoordinates();
+				WriteEntitesToFile();
 			} else {
-				PrintEntityCoordinates(m_customPrintFormat); // True if you want to modify the printed line, see PrintEntityCoordinates()
-			}			
+				PrintEntities();
+			}
 		} else {
-			Print("Query failed!");
+			typename t = EQComponentSearchMode;
+			PrintFormat("Query failed for mode %1", GetCurrentSearchModeName());
 		}
 	}
-	
-	////////////////////////////
-	// Internals
 	
 	bool BeforeQueryCheck() {
 		// Cache world ref
@@ -135,17 +206,15 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 				Print("GetWorld() returned null!");
 				return false;
 			}
+			PrintFormat("Got world %1", m_currentWorld);
 		}
 		
-		// Clear previous results
-		if (m_entityResults == null) {
-			m_entityResults = new array<IEntity>;
-		} else {
-			m_entityResults.Clear();
-		}
-		
+		// Ensure we have our supplies info defined
+		PopulateCampaignSuppliesInformation();
+				
 		// Gather our individual exclusion strings from the comma separated list
-		m_excludeStringArray = new array<string>;
+		m_excludeStringArray.Clear();
+		
 		array<string> tmpStringSplit = new array<string>;
 		if (m_exclusionTerms.Length() > 0) {
 			m_exclusionTerms.Split(",", tmpStringSplit, true);
@@ -162,13 +231,15 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	}
 	
 	bool filterEntitiesCallback(IEntity e) {
-		if (m_componentSearchMode == EQComponentSearchMode.SUPPLIES) {
+		if (m_componentSearchMode == EQComponentSearchMode.SUPPLY_CACHE) {
 			return filterResourceInventoryEntitiesCallback(e);
-		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLES) {
+		} else if (m_componentSearchMode == EQComponentSearchMode.CAMPAIGN_SUPPLIES) {
+			return filterCampaignSuppliesEntitiesCallback(e);
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLE) {
 			return filterAmbientVehicleSpawnEntitiesCallback(e);
-		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLEREPAIR) {
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLE_REPAIR) {
 			return filterVehicleRepairEntitiesCallback(e);
-		} else if (m_componentSearchMode == EQComponentSearchMode.REFUEL) {
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLE_REFUEL) {
 			return filterRefuelEntitiesCallback(e);
 		} else if (m_componentSearchMode == EQComponentSearchMode.MOB_SPAWN) {
 			return filterMOBSpawnEntitiesCallback(e);
@@ -198,6 +269,19 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			
 			// default to true for our wanted components
 			return true;
+		}
+		
+		return false;
+	}
+
+	// How we identify the entities which implement in-game supplies
+	bool filterCampaignSuppliesEntitiesCallback(IEntity e) {
+		// Currently we only want to look for objects with resource + inventory components (the supply signposts)
+		if (e.FindComponent(SCR_CampaignSuppliesComponent) && e.FindComponent(SCR_CampaignMilitaryBaseComponent)) {
+			SCR_CampaignMilitaryBaseComponent cmbComponent = SCR_CampaignMilitaryBaseComponent.Cast(e.FindComponent(SCR_CampaignMilitaryBaseComponent));			
+			if (cmbComponent.GetType() == SCR_ECampaignBaseType.SOURCE_BASE) {
+				return true;
+			}
 		}
 		
 		return false;
@@ -269,40 +353,20 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	}
 	
 	// Output to a file. No safety is performed on the filename so be careful when typing!
-	void WriteJSONEntityCoordinates() {
+	void WriteEntitesToFile() {
 		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
 		WorldEditorAPI api = worldEditor.GetApi();
+		
+		// Early out if there's no entities in the query results
+		if (m_entityResults.Count() == 0) {
+			PrintFormat("Skipping zero entity results for mode %1", GetCurrentSearchModeName());
+			return;
+		}
 
-		string filepath = string.Format("$profile:%1", m_outputFilename);
+		string filepath = string.Format("$profile:%1", GetFilenameForMode());
 		FileHandle textFileW = FileIO.OpenFile(filepath, FileMode.WRITE);
 		if (textFileW) {
-			textFileW.WriteLine("[");
-			foreach(IEntity foundEntity : m_entityResults) {
-				textFileW.WriteLine("  {");
-				// Name
-				string name = foundEntity.GetName();
-				string formattedNameLine = string.Format("    \"name\": \"%1\",", name);
-				textFileW.WriteLine(formattedNameLine);
-				
-				// Standard location
-				vector position = foundEntity.GetOrigin();
-				string formattedLocationLine = string.Format("    \"locationXZ\": [%1, %2],", position[0], position[2]);
-				textFileW.WriteLine(formattedLocationLine);
-
-				// Height				
-				float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
-				float relativeHeight = position[1] - worldHeight;
-
-				string formattedHeightLine = string.Format("    \"height\": %1,", relativeHeight);
-				textFileW.WriteLine(formattedHeightLine);
-				
-				if (m_componentSearchMode == EQComponentSearchMode.SUPPLIES) {
-					WriteSupplyCacheData(foundEntity, textFileW);
-				}
-				
-				textFileW.Write("  },");
-			}
-			textFileW.WriteLine("]");
+			textFileW.Write(CollectAllObjectJSON());
 			textFileW.Close();
 			
 			int entityCount = m_entityResults.Count();
@@ -312,37 +376,26 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		}
 	}
 	
-	// Additional information required when writing supply location data
-	void WriteSupplyCacheData(IEntity e, FileHandle fh) {
-		// Resource values
-		bool entityResourcesInfinite;
-		float entityTotalResources;
-		GetResourceAttributes(e, entityResourcesInfinite, entityTotalResources);
-		
-		float resourcesAvailable = entityTotalResources;
-		if (entityResourcesInfinite) { resourcesAvailable = -1; }
-		string formattedResourcesAvailableLine = string.Format("    \"resourcesAvailable\": %1", resourcesAvailable);
-		fh.WriteLine(formattedResourcesAvailableLine);
-	}
-	
 	// Just print the results to the console for debugging / checking
-	void PrintEntityCoordinates(bool customFormat) {
+	void PrintEntities() {
 		WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
 		WorldEditorAPI api = worldEditor.GetApi();
-
-		foreach(IEntity foundEntity : m_entityResults) {
-			if (customFormat) {
-				CustomPrintEntity(foundEntity, api);
-			} else {
-				Print(foundEntity);
+		
+		if (m_outputMode == EQOutputMode.CONSOLE_DEBUG)
+		{
+			// If we're in debug printing mode, run each entity through a function to output console info
+			foreach(IEntity entity : m_entityResults) {
+				CustomPrintEntity(entity, api);
 			}
+		} else {
+			Print(CollectAllObjectJSON());
 		}
 		
 		int entityCount = m_entityResults.Count();
 		PrintFormat("Total entity count: %1", entityCount);
 	}
 	
-	// Custom entity printing where we can get additional information
+	// Custom entity printing where we can get additional information and explore the API
 	void CustomPrintEntity(IEntity entity, WorldEditorAPI api) {
 		vector position = entity.GetOrigin();
 		float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
@@ -354,6 +407,13 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		
 		Print("-------");
 		Print(entity);
+        Print("  NAME: " + entity.GetName());
+	
+		IEntitySource entitySource = api.EntityToSource(entity);
+		Print("  NICE NAME: " + api.GetEntityNiceName(entitySource));
+		
+		ResourceName prefabPathSource = SCR_ResourceNameUtils.GetPrefabName(entity);
+		Print("  PREFAB PATH: " + prefabPathSource);
 		PrintFormat("  HEIGHT: %1", relativeHeight);
 		if (entityResourcesInfinite) {
 			PrintFormat("  RESOURCES: INFINITE");
@@ -361,18 +421,17 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 			PrintFormat("  RESOURCES: %1", entityTotalResources);
 		}
 	}
-	
+
+	// For SUPPLY_CACHE, we can find the amount of supplies
 	void GetResourceAttributes(IEntity resourceEntity, out bool infiniteResources, out float totalResourceValue) {
 		float totalChildResources = CountResourcesInChildren(resourceEntity);
 		PrintFormat("Direct resources: %1", totalChildResources);
-		
 		
 		IEntity parent = resourceEntity.GetParent();
 		if (!parent) {
 			Print("No parent!", LogLevel.ERROR);
 			return;
 		}
-		
 		
 		bool isInfinite;
 		if (FindInfiniteContainer(parent, isInfinite)) {
@@ -452,8 +511,13 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 	// Standard tool hooks
 	
 	override void OnBeforeUnloadWorld() {
+		Print("World unloading, clearing cached world reference and results");
 		// Remove any cached reference to the world
 		m_currentWorld = null;
+	}
+	
+	override void OnDeActivate() {
+		Print("Deactivating tool and clearing results");
 	}
 	
 	////////////////////////////
@@ -474,5 +538,139 @@ class EntityQueryWorldEditorTool: WorldEditorTool
 		}
 
 		return "unknown";
+	}
+	
+	// Output formatting
+	
+	string MakeObjectJSONStart()
+	{
+		return "  {\n";
+	}
+	
+	string MakeObjectJSONEnd()
+	{
+		return "\n  }";
+	}
+	
+    // This does not output a trailing comma or newline
+	string MakeObjectJSONCommon(IEntity entity)
+	{
+	    WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
+        WorldEditorAPI api = worldEditor.GetApi();
+
+		string outputString = "";
+		
+		// Type
+		typename t = EQComponentSearchMode;
+		outputString += string.Format("    \"mapLocationType\": \"%1\",\n", t.GetVariableName(m_componentSearchMode));
+		
+		// Name
+		string name = entity.GetName();
+		if (name.Length() == 0) {
+			IEntitySource entitySource = api.EntityToSource(entity);
+			// Try the nice name
+			name = api.GetEntityNiceName(entitySource);
+		}
+		
+		string formattedNameLine = string.Format("    \"name\": \"%1\",", name);
+		outputString += formattedNameLine + "\n";
+
+		// LocationXZ
+		vector position = entity.GetOrigin();
+		string formattedLocationLine = string.Format("    \"locationXZ\": [%1, %2],", position[0], position[2]);
+		outputString += formattedLocationLine + "\n";
+
+		// Height
+		float worldHeight = api.GetTerrainSurfaceY(position[0], position[2]);
+		float relativeHeight = position[1] - worldHeight;
+
+		string formattedHeightLine = string.Format("    \"height\": %1", relativeHeight);
+		outputString += formattedHeightLine;
+
+		return outputString;
+	}
+	
+	string MakeObjectJSONSupplyCache(IEntity entity)
+	{
+		// Resource values
+		bool entityResourcesInfinite;
+		float entityTotalResources;
+		GetResourceAttributes(entity, entityResourcesInfinite, entityTotalResources);
+		
+		float resourcesAvailable = entityTotalResources;
+		if (entityResourcesInfinite) { resourcesAvailable = -1; }
+		string formattedResourcesAvailableLine = string.Format("    \"suppliesAvailable\": %1", resourcesAvailable);
+		return formattedResourcesAvailableLine;
+	}
+	
+	string MakeObjectJSONCampaignSupplies(IEntity entity)
+	{
+		ResourceName prefabPathSource = SCR_ResourceNameUtils.GetPrefabName(entity);
+		// Now loop through m_campaignSuppliesInformation and find a whether name is a substring, and output the income and arrivalTime
+		foreach(CampaignSuppliesInformation supplyInfo : m_campaignSuppliesInformation) {
+			if (prefabPathSource.EndsWith(supplyInfo.m_sName)) {
+				string formattedLines = string.Format("    \"suppliesIncome\": %1,", supplyInfo.m_iIncome) + "\n";
+				formattedLines += string.Format("    \"suppliesArrivalTime\": %1", supplyInfo.m_iArrivalTime);
+				return formattedLines;
+			}
+		}
+
+		return "";
+	}
+
+	
+	string MakeObjectJSON(IEntity entity)
+	{
+		string outputString = MakeObjectJSONStart();
+		
+		outputString += MakeObjectJSONCommon(entity);
+		
+		if (m_componentSearchMode == EQComponentSearchMode.SUPPLY_CACHE) {
+			outputString += ",\n" + MakeObjectJSONSupplyCache(entity);
+		} else if (m_componentSearchMode == EQComponentSearchMode.CAMPAIGN_SUPPLIES) {
+			outputString += ",\n" + MakeObjectJSONCampaignSupplies(entity);
+		} else if (m_componentSearchMode == EQComponentSearchMode.VEHICLE) {
+			// We cannot find vehicle spawn info because it's protected :(
+		}
+		
+		outputString += MakeObjectJSONEnd();
+		
+		return outputString;
+	}
+	
+	string CollectAllObjectJSON()
+	{
+		array<string> entitiesJSON = {};
+		foreach(IEntity entity : m_entityResults) {
+			entitiesJSON.Insert(MakeObjectJSON(entity));
+		}
+	
+		return "[\n" + SCR_StringHelper.Join(",\n", entitiesJSON) + "\n]";
+	}
+	
+	string GetCurrentSearchModeName()
+	{
+		typename t = EQComponentSearchMode;
+		return t.GetVariableName(m_componentSearchMode);
+	}
+	
+	string GetFilenameForMode()
+	{
+		string modeLower = GetCurrentSearchModeName();
+		modeLower.ToLower();
+		return m_outputFilePrefix + "_" + modeLower + ".json";
+	}
+	
+	// Fixed data
+	
+	void PopulateCampaignSuppliesInformation()
+	{
+		if (m_campaignSuppliesInformation.IsEmpty())
+		{
+			m_campaignSuppliesInformation.Insert(new CampaignSuppliesInformation("T1Harbor.et", 3000, 900));
+			m_campaignSuppliesInformation.Insert(new CampaignSuppliesInformation("T2Harbor.et", 2000, 900));
+			m_campaignSuppliesInformation.Insert(new CampaignSuppliesInformation("T3Harbor.et", 1000, 600));
+			m_campaignSuppliesInformation.Insert(new CampaignSuppliesInformation("Airfield.et", 2000, 600));
+		}
 	}
 }
